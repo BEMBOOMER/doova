@@ -1,0 +1,179 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Archivo Black";
+  src: url("/fonts/ArchivoBlack-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/SpaceGrotesk-Variable.ttf") format("truetype-variations");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+/* ---------- Accent colors (theme-independent) ---------- */
+[data-accent="yellow"]    { --color-accent: #ffd600; --color-accent-ink: #1a1a1a; }
+[data-accent="blue"]      { --color-accent: #4361ee; --color-accent-ink: #ffffff; }
+[data-accent="lightblue"] { --color-accent: #58c4f6; --color-accent-ink: #1a1a1a; }
+[data-accent="purple"]    { --color-accent: #a855f7; --color-accent-ink: #ffffff; }
+[data-accent="coral"]     { --color-accent: #ff4f81; --color-accent-ink: #ffffff; }
+[data-accent="lime"]      { --color-accent: #ccff00; --color-accent-ink: #1a1a1a; }
+[data-accent="orange"]    { --color-accent: #ff6b35; --color-accent-ink: #ffffff; }
+[data-accent="teal"]      { --color-accent: #06d6a0; --color-accent-ink: #1a1a1a; }
+
+/* ---------- Glass theme (default) ---------- */
+[data-theme="glass"] {
+  --app-bg: transparent;
+  --surface: rgba(255, 255, 255, 0.42);
+  --surface-raised: rgba(255, 255, 255, 0.62);
+  --ink: #1d1d1f;
+  --ink-soft: rgba(29, 29, 31, 0.55);
+  --border-width: 1px;
+  --border-color: rgba(255, 255, 255, 0.5);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.07);
+  --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+  --heading-transform: none;
+  --heading-weight: 650;
+  --blur: blur(24px) saturate(1.6);
+}
+
+/* ---------- bemboe theme (neo-brutalism) ---------- */
+[data-theme="bemboe"] {
+  --app-bg: #f5f0e8;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --ink: #1a1a1a;
+  --ink-soft: rgba(26, 26, 26, 0.6);
+  --border-width: 3px;
+  --border-color: #1a1a1a;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 5px 5px 0 var(--border-color);
+  --shadow-sm: 3px 3px 0 var(--border-color);
+  --font-heading: "Archivo Black", sans-serif;
+  --font-body: "Space Grotesk", sans-serif;
+  --heading-transform: uppercase;
+  --heading-weight: 400;
+  --blur: none;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.ProseMirror {
+  user-select: text;
+  cursor: text;
+}
+
+/* Panel: the standard themed surface used by blocks, popovers, settings */
+.panel {
+  background: var(--surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+[data-theme="glass"] .panel {
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+.heading {
+  font-family: var(--font-heading);
+  text-transform: var(--heading-transform);
+  font-weight: var(--heading-weight);
+}
+
+/* Noise overlay, bemboe only */
+[data-theme="bemboe"] .noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Opaque stand-in when vibrancy is unavailable (plain browser / reduced transparency) */
+:root.no-vibrancy[data-theme="glass"] body {
+  background: linear-gradient(160deg, #eef2f8, #e9e4f2 55%, #e4ecf3);
+}
+
+/* Gradient wash behind everything in glass theme */
+[data-theme="glass"] .bg-wash {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 15% 0%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 60%),
+    radial-gradient(110% 80% at 90% 100%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 55%);
+}
+
+/* Scrollbars, subtle */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink) 22%, transparent); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Tiptap editor */
+.ProseMirror {
+  outline: none;
+  min-height: 120px;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.ProseMirror p { margin: 0.25em 0; }
+.ProseMirror h1 { font-size: 1.4em; font-family: var(--font-heading); text-transform: var(--heading-transform); margin: 0.5em 0 0.25em; }
+.ProseMirror h2 { font-size: 1.2em; font-family: var(--font-heading); text-transform: var(--heading-transform); margin: 0.5em 0 0.25em; }
+.ProseMirror h3 { font-size: 1.05em; font-weight: 700; margin: 0.4em 0 0.2em; }
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.3em; margin: 0.25em 0; }
+.ProseMirror ul { list-style: disc; }
+.ProseMirror ol { list-style: decimal; }
+.ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 0.1em; }
+.ProseMirror ul[data-type="taskList"] li { display: flex; gap: 0.5em; align-items: baseline; }
+.ProseMirror ul[data-type="taskList"] li > label { flex-shrink: 0; }
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { opacity: 0.5; text-decoration: line-through; }
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--ink-soft);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Animations, snappy per user preference */
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.pop-in { animation: pop-in 0.18s ease-out; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.toast-in { animation: toast-in 0.2s ease-out; }

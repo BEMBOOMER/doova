@@ -1,0 +1,48 @@
+# Doova
+
+Persoonlijke productiviteits-app voor macOS. Projecten als tabs, met blokken voor to-do's, notities en bestanden.
+
+- **Checklist** — taken met subtaken, vervaldatum en kleurlabels
+- **Notities** — rich text met koppen, lijsten en checkboxen
+- **Bestanden** — sleep bestanden of mappen uit Finder erin; klik om ze direct weer in Finder te tonen
+- **Thema's** — Glass (licht, doorschijnend, Apple-stijl) of bemboe (neo-brutalism), plus 8 accentkleuren
+- Alles wordt lokaal opgeslagen, geen account of cloud
+
+Gebouwd met [Tauri v2](https://tauri.app) + React + TypeScript.
+
+## Download
+
+Pak de nieuwste DMG van de [Releases-pagina](../../releases), open hem en sleep Doova naar Programma's.
+
+### Eerste keer openen (belangrijk)
+
+Doova is niet gesigneerd met een Apple Developer-certificaat. macOS blokkeert de app daarom bij de eerste start.
+
+1. Rechtsklik (of Ctrl-klik) op **Doova** in je Programma's-map
+2. Kies **Open**
+3. Bevestig nogmaals met **Open**
+
+Dit hoeft maar één keer. Blijft macOS weigeren, draai dan eenmalig in Terminal:
+
+```bash
+xattr -cr /Applications/Doova.app
+```
+
+## Ontwikkelen
+
+Vereist: Node 20+, Rust (via [rustup](https://rustup.rs)), Xcode Command Line Tools.
+
+```bash
+npm install
+npm run tauri dev
+```
+
+Release bouwen gebeurt automatisch: push een tag `v*` en GitHub Actions bouwt de universal DMG (Intel + Apple Silicon) als draft release.
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+## Data
+
+Je data staat lokaal in `~/Library/Application Support/com.bemboe.doova/` als leesbare JSON (`data.json`, `settings.json`), met automatische `.bak`-backup bij elke save.
