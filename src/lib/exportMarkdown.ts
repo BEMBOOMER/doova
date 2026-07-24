@@ -45,6 +45,8 @@ const serializer = new MarkdownSerializer(
     italic: d.marks.em,
     code: d.marks.code,
     strike: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true },
+    // highlights survive as ==marked== (Obsidian/Notion-style)
+    highlight: { open: "==", close: "==", mixable: true, expelEnclosingWhitespace: true },
   },
 );
 

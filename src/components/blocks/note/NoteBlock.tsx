@@ -1,8 +1,11 @@
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
+import Highlight from "@tiptap/extension-highlight";
 import type { NoteBlockData } from "../../../types";
 import { useProjectsStore } from "../../../stores/projectsStore";
 import { iconFor, revealInFinder } from "../../../lib/fileSystem";
@@ -34,10 +37,33 @@ function ToolbarButton({
   );
 }
 
+const HIGHLIGHT_COLORS = ["#FFF176", "#A5F3C4", "#A5D8FF", "#FFC9DE", "#E4C7FF"];
+
 export function NoteBlock({ block }: { block: NoteBlockData }) {
   const setNoteContent = useProjectsStore((s) => s.setNoteContent);
   const removeNoteFile = useProjectsStore((s) => s.removeNoteFile);
   const files = block.files ?? [];
+  // popover lives in a body portal: inside the block it gets clipped by the
+  // block's own scroll container
+  const [picker, setPicker] = useState<{ x: number; y: number } | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!picker) return;
+    const onDown = (e: MouseEvent) => {
+      if (toggleRef.current?.contains(e.target as Node)) return;
+      if (!pickerRef.current?.contains(e.target as Node)) setPicker(null);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [picker]);
+
+  const openPickerAt = (x: number, y: number) =>
+    setPicker({
+      x: Math.min(Math.max(x, 8), window.innerWidth - 200),
+      y: Math.min(y, window.innerHeight - 60),
+    });
 
   const editor = useEditor({
     // keep toolbar active-states in sync with the selection (v3 defaults to false)
@@ -46,6 +72,7 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      Highlight.configure({ multicolor: true }),
       Placeholder.configure({ placeholder: "Schrijf iets, of sleep een bestand…" }),
     ],
     content: block.content ?? "",
@@ -83,8 +110,65 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
         <ToolbarButton editor={editor} label="☑" title="Checklist"
           action={() => editor.chain().focus().toggleTaskList().run()}
           active={editor.isActive("taskList")} />
+        <span className="mx-0.5 h-4 w-px bg-border-themed opacity-40" />
+        <div ref={toggleRef}>
+          <ToolbarButton editor={editor} label="✎" title="Markeren"
+            action={() => {
+              if (picker) {
+                setPicker(null);
+                return;
+              }
+              const r = toggleRef.current?.getBoundingClientRect();
+              if (r) openPickerAt(r.left, r.bottom + 6);
+            }}
+            active={editor.isActive("highlight")} />
+        </div>
       </div>
-      <EditorContent editor={editor} />
+      <div
+        onContextMenu={(e) => {
+          // right-click on a selection offers the highlighter instead of the
+          // block menu; an empty selection falls through to the block
+          if (editor.state.selection.empty) return;
+          e.preventDefault();
+          e.stopPropagation();
+          openPickerAt(e.clientX, e.clientY);
+        }}
+      >
+        <EditorContent editor={editor} />
+      </div>
+      {picker &&
+        createPortal(
+          <div
+            ref={pickerRef}
+            className="panel pop-in fixed z-[90] flex items-center gap-1.5 p-1.5"
+            style={{ left: picker.x, top: picker.y }}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            {HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c}
+                onClick={() => {
+                  editor.chain().focus().setHighlight({ color: c }).run();
+                  setPicker(null);
+                }}
+                className="h-6 w-6 rounded-full transition-transform hover:scale-110"
+                style={{ background: c }}
+                title="Markeer selectie"
+              />
+            ))}
+            <button
+              onClick={() => {
+                editor.chain().focus().unsetHighlight().run();
+                setPicker(null);
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-border-themed text-[11px] text-ink-soft hover:text-ink"
+              title="Markering weghalen"
+            >
+              ✕
+            </button>
+          </div>,
+          document.body,
+        )}
       {files.length > 0 && (
         <div className="mt-2 border-t border-border-themed/30 pt-1.5">
           {files.map((item) => (

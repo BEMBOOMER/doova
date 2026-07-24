@@ -321,6 +321,13 @@ aside { transition: width 0.22s cubic-bezier(0.3, 0.8, 0.3, 1); }
 .ProseMirror ul[data-type="taskList"] li > label { flex-shrink: 0; }
 .ProseMirror ul[data-type="taskList"] li > label input { accent-color: var(--color-accent); }
 .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { opacity: 0.5; text-decoration: line-through; }
+.ProseMirror mark {
+  border-radius: 3px;
+  padding: 0 2px;
+  color: #1a1a1a;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
