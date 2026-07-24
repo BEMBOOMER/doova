@@ -137,8 +137,12 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
  * Canvas is generously sized and grow-only, so resizing or moving a block
  * never makes the whole board reflow or the scrollbars jump around.
  */
-const MIN_CANVAS = { width: 3200, height: 2200 };
-const CANVAS_MARGIN = 600;
+/**
+ * The canvas is exactly as big as it needs to be: the viewport when
+ * everything fits (so there is nothing to scroll into), growing past it only
+ * as far as the blocks reach, plus room to keep dragging outward.
+ */
+const CANVAS_MARGIN = 220;
 
 export function CanvasBoard() {
   const { tabs, activeTabId, addBlock, addCalendarBlock } = useProjectsStore();
@@ -164,6 +168,20 @@ export function CanvasBoard() {
 
   // hold the configured mouse button to drag the canvas around
   const viewportRef = useRef<HTMLDivElement>(null);
+  // the canvas is never smaller than what you can see, so an empty project
+  // has nothing to scroll into
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setViewport({ width: Math.round(width), height: Math.round(height) });
+    });
+    ro.observe(vp);
+    return () => ro.disconnect();
+  }, []);
   const panButton = useSettingsStore((s) => s.panButton);
   const panning = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
 
@@ -222,11 +240,11 @@ export function CanvasBoard() {
   }
 
   const width = Math.max(
-    MIN_CANVAS.width,
+    viewport.width,
     ...tab.blocks.map((b) => b.layout.x + b.layout.width + CANVAS_MARGIN),
   );
   const height = Math.max(
-    MIN_CANVAS.height,
+    viewport.height,
     ...tab.blocks.map((b) => b.layout.y + b.layout.height + CANVAS_MARGIN),
   );
 
