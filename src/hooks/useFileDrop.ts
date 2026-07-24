@@ -35,16 +35,31 @@ export function useFileDrop() {
         const { addFileItem } = useProjectsStore.getState();
         const { showToast } = useUiStore.getState();
         const paths = event.payload.paths;
+        const isDuplicate = (path: string) =>
+          useProjectsStore
+            .getState()
+            .tabs.flatMap((t) => t.blocks)
+            .some(
+              (b) =>
+                b.id === blockId &&
+                b.type === "file-organizer" &&
+                b.items.some((it) => it.path === path),
+            );
+        let added = 0;
         for (const path of paths) {
+          if (isDuplicate(path)) continue;
           addFileItem(blockId, await makeFileItem(path));
+          added++;
         }
         if (paths.length > 0) {
           // confirm in Finder, as designed: drop = save shortcut + reveal
           await revealInFinder(paths[0]);
           showToast(
-            paths.length === 1
-              ? "Toegevoegd en getoond in Finder"
-              : `${paths.length} items toegevoegd`,
+            added === 0
+              ? "Stond er al in"
+              : added === 1
+                ? "Toegevoegd en getoond in Finder"
+                : `${added} items toegevoegd`,
           );
         }
       } else {

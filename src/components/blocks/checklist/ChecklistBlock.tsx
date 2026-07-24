@@ -7,7 +7,9 @@ export function ChecklistBlock({ block }: { block: ChecklistBlockData }) {
   const addChecklistItem = useProjectsStore((s) => s.addChecklistItem);
   const [draft, setDraft] = useState("");
 
-  const openCount = block.items.filter((it) => !it.done).length;
+  const countOpen = (items: typeof block.items): number =>
+    items.reduce((n, it) => n + (it.done ? 0 : 1) + countOpen(it.subtasks), 0);
+  const openCount = countOpen(block.items);
 
   const submit = () => {
     const text = draft.trim();

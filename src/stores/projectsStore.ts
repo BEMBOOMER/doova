@@ -32,6 +32,8 @@ interface ProjectsState {
   tabs: ProjectTab[];
   activeTabId: string | null;
   loaded: boolean;
+  /** true when data.json exists but could not be read: never overwrite it */
+  loadFailed: boolean;
 
   load: () => Promise<void>;
 
@@ -59,13 +61,37 @@ interface ProjectsState {
   markFileMissing: (blockId: string, itemId: string, missing: boolean) => void;
 }
 
-function persist(state: Pick<ProjectsState, "tabs" | "activeTabId">) {
+function persist(state: Pick<ProjectsState, "tabs" | "activeTabId" | "loaded" | "loadFailed">) {
+  // never write before a successful (or first-run) load: a transient read
+  // failure must not end with real data being overwritten by a fresh seed
+  if (!state.loaded || state.loadFailed) return;
   const data: AppData = {
     schemaVersion: SCHEMA_VERSION,
     tabs: state.tabs,
     activeTabId: state.activeTabId,
   };
   saveJsonDebounced(DATA_FILE, data);
+}
+
+/** Fill in any arrays/fields missing from older or hand-edited files. */
+function normalizeItems(items: unknown): ChecklistItem[] {
+  if (!Array.isArray(items)) return [];
+  return items.map((it) => ({
+    ...(it as ChecklistItem),
+    subtasks: normalizeItems((it as ChecklistItem).subtasks),
+  }));
+}
+
+function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
+  return tabs.map((tab) => ({
+    ...tab,
+    blocks: (Array.isArray(tab.blocks) ? tab.blocks : []).map((b) => {
+      if (b.type === "checklist") return { ...b, items: normalizeItems(b.items) };
+      if (b.type === "file-organizer")
+        return { ...b, items: Array.isArray(b.items) ? b.items : [] };
+      return b;
+    }),
+  }));
 }
 
 /** Immutably update one tab by id. */
@@ -111,13 +137,25 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   tabs: [],
   activeTabId: null,
   loaded: false,
+  loadFailed: false,
 
   load: async () => {
-    const data = await loadJson<AppData>(DATA_FILE);
-    if (data && Array.isArray(data.tabs) && data.tabs.length > 0) {
+    const result = await loadJson<AppData>(DATA_FILE);
+    if (result.status === "ok" && Array.isArray(result.data.tabs) && result.data.tabs.length > 0) {
+      const data = result.data;
+      if (data.schemaVersion > SCHEMA_VERSION) {
+        // file written by a newer Doova: show it read-only, don't clobber it
+        console.error(`data.json has schema ${data.schemaVersion}, app supports ${SCHEMA_VERSION}`);
+        set({ tabs: normalizeTabs(data.tabs), activeTabId: data.tabs[0].id, loaded: true, loadFailed: true });
+        return;
+      }
       const activeTabId =
         data.tabs.some((t) => t.id === data.activeTabId) ? data.activeTabId : data.tabs[0].id;
-      set({ tabs: data.tabs, activeTabId, loaded: true });
+      set({ tabs: normalizeTabs(data.tabs), activeTabId, loaded: true });
+    } else if (result.status === "error") {
+      // data exists but is unreadable: work in-memory, never overwrite the file
+      const first = makeTab("Project 1");
+      set({ tabs: [first], activeTabId: first.id, loaded: true, loadFailed: true });
     } else {
       const first = makeTab("Project 1");
       set({ tabs: [first], activeTabId: first.id, loaded: true });
@@ -199,13 +237,20 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   },
 
   restoreBlock: (tabId, block, index) => {
-    set((s) => ({
-      tabs: withTab(s.tabs, tabId, (t) => {
-        const blocks = [...t.blocks];
-        blocks.splice(Math.min(index, blocks.length), 0, block);
-        return { ...t, blocks };
-      }),
-    }));
+    set((s) => {
+      // original tab may have been closed since; fall back so undo never loses the block
+      const target = s.tabs.some((t) => t.id === tabId)
+        ? tabId
+        : (s.activeTabId ?? s.tabs[0]?.id ?? null);
+      if (!target) return s;
+      return {
+        tabs: withTab(s.tabs, target, (t) => {
+          const blocks = [...t.blocks];
+          blocks.splice(Math.min(index, blocks.length), 0, block);
+          return { ...t, blocks };
+        }),
+      };
+    });
     persist(get());
   },
 

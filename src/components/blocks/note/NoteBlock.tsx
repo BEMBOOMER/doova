@@ -37,6 +37,8 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
   const setNoteContent = useProjectsStore((s) => s.setNoteContent);
 
   const editor = useEditor({
+    // keep toolbar active-states in sync with the selection (v3 defaults to false)
+    shouldRerenderOnTransaction: true,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       TaskList,

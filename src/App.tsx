@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
+import { exit } from "@tauri-apps/plugin-process";
 import { useProjectsStore } from "./stores/projectsStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { flushAll } from "./lib/persistence";
@@ -22,11 +24,20 @@ export default function App() {
     // never lose the last few seconds of work on quit
     if (!isTauri()) return;
     const win = getCurrentWindow();
-    const unlisten = win.onCloseRequested(async () => {
+    const unlistenClose = win.onCloseRequested(async () => {
       await flushAll();
     });
+    // Cmd+Q skips close-requested; Rust prevents the exit once and emits this
+    const unlistenExit = listen("exit-requested", async () => {
+      try {
+        await flushAll();
+      } finally {
+        await exit(0);
+      }
+    });
     return () => {
-      void unlisten.then((fn) => fn());
+      void unlistenClose.then((fn) => fn());
+      void unlistenExit.then((fn) => fn());
     };
   }, []);
 

@@ -22,7 +22,7 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: block.id });
+    useSortable({ id: block.id, disabled: editing });
 
   useEffect(() => {
     if (editing) inputRef.current?.select();

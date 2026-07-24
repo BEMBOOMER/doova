@@ -36,6 +36,7 @@ export function ChecklistItemRow({
   const [addingSub, setAddingSub] = useState(false);
   const [subDraft, setSubDraft] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,6 +46,8 @@ export function ChecklistItemRow({
   useEffect(() => {
     if (!menuPos) return;
     const onDown = (e: MouseEvent) => {
+      // ignore the toggle button itself, or its own click would reopen the menu
+      if (menuButtonRef.current?.contains(e.target as Node)) return;
       if (!menuRef.current?.contains(e.target as Node)) setMenuPos(null);
     };
     window.addEventListener("mousedown", onDown);
@@ -127,6 +130,7 @@ export function ChecklistItemRow({
           )}
         </div>
         <button
+          ref={menuButtonRef}
           onClick={openMenu}
           className="hidden h-5 w-5 shrink-0 items-center justify-center rounded text-[13px] text-ink-soft hover:text-ink group-hover:flex"
           title="Opties"

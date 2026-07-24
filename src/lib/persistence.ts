@@ -30,25 +30,42 @@ async function writeAtomic(file: string, contents: string) {
   await rename(tmp, file, { oldPathBaseDir: DIR.baseDir, newPathBaseDir: DIR.baseDir });
 }
 
-export async function loadJson<T>(file: string): Promise<T | null> {
+/**
+ * "missing" (first run) and "error" (file there but unreadable) are distinct:
+ * callers may only seed-and-persist on "missing", or a transient read failure
+ * would overwrite real data with a fresh empty state.
+ */
+export type LoadResult<T> =
+  | { status: "ok"; data: T }
+  | { status: "missing" }
+  | { status: "error" };
+
+export async function loadJson<T>(file: string): Promise<LoadResult<T>> {
+  let primaryMissing = false;
   try {
-    if (!(await exists(file, DIR))) return null;
-    return JSON.parse(await readTextFile(file, DIR)) as T;
+    if (!(await exists(file, DIR))) {
+      primaryMissing = true;
+    } else {
+      return { status: "ok", data: JSON.parse(await readTextFile(file, DIR)) as T };
+    }
   } catch (err) {
     console.error(`Failed to load ${file}, trying backup`, err);
-    try {
-      if (await exists(`${file}.bak`, DIR)) {
-        return JSON.parse(await readTextFile(`${file}.bak`, DIR)) as T;
-      }
-    } catch (bakErr) {
-      console.error(`Backup of ${file} also unreadable`, bakErr);
-    }
-    return null;
   }
+  try {
+    if (await exists(`${file}.bak`, DIR)) {
+      return { status: "ok", data: JSON.parse(await readTextFile(`${file}.bak`, DIR)) as T };
+    }
+  } catch (bakErr) {
+    console.error(`Backup of ${file} also unreadable`, bakErr);
+    return { status: "error" };
+  }
+  return primaryMissing ? { status: "missing" } : { status: "error" };
 }
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const pending = new Map<string, string>();
+// per-file promise chain: serializes writes so two saves never share a .tmp
+const chains = new Map<string, Promise<void>>();
 
 export function saveJsonDebounced(file: string, data: unknown, delay = 700) {
   pending.set(file, JSON.stringify(data, null, 2));
@@ -61,22 +78,29 @@ export function saveJsonDebounced(file: string, data: unknown, delay = 700) {
   );
 }
 
-async function flushFile(file: string) {
+function flushFile(file: string): Promise<void> {
   const contents = pending.get(file);
-  if (contents === undefined) return;
+  if (contents === undefined) return chains.get(file) ?? Promise.resolve();
   pending.delete(file);
   clearTimeout(timers.get(file));
   timers.delete(file);
-  try {
-    await writeAtomic(file, contents);
-  } catch (err) {
-    console.error(`Failed to save ${file}`, err);
-  }
+  const next = (chains.get(file) ?? Promise.resolve()).then(async () => {
+    try {
+      await writeAtomic(file, contents);
+    } catch (err) {
+      console.error(`Failed to save ${file}, re-queueing`, err);
+      // keep the newest payload around for the next flush attempt
+      if (!pending.has(file)) pending.set(file, contents);
+    }
+  });
+  chains.set(file, next);
+  return next;
 }
 
-/** Immediately write everything still pending (used on window close). */
+/** Immediately write everything pending AND wait for in-flight writes. */
 export async function flushAll() {
-  await Promise.all([...pending.keys()].map((file) => flushFile(file)));
+  const files = new Set([...pending.keys(), ...chains.keys()]);
+  await Promise.all([...files].map((file) => flushFile(file)));
 }
 
 export const DATA_FILE = "data.json";

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { AccentColor, SettingsData, ThemeName } from "../types";
-import { DEFAULT_SETTINGS } from "../types";
+import { ACCENT_COLORS, DEFAULT_SETTINGS } from "../types";
 import { SETTINGS_FILE, loadJson, saveJsonDebounced } from "../lib/persistence";
 import { applyTheme } from "../lib/theme";
 
@@ -16,8 +16,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   loaded: false,
 
   load: async () => {
-    const saved = await loadJson<SettingsData>(SETTINGS_FILE);
-    const settings = { ...DEFAULT_SETTINGS, ...saved };
+    const result = await loadJson<SettingsData>(SETTINGS_FILE);
+    const saved = result.status === "ok" ? result.data : null;
+    const settings: SettingsData = {
+      theme: saved?.theme === "bemboe" ? "bemboe" : DEFAULT_SETTINGS.theme,
+      accentColor: ACCENT_COLORS.some((c) => c.id === saved?.accentColor)
+        ? (saved!.accentColor as AccentColor)
+        : DEFAULT_SETTINGS.accentColor,
+    };
     set({ ...settings, loaded: true });
     void applyTheme(settings.theme, settings.accentColor);
   },
