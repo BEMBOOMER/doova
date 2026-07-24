@@ -65,6 +65,7 @@ export function CanvasBlock({
         throttleDrag={0}
         resizable={selected}
         renderDirections={selected ? ["nw", "ne", "sw", "se", "n", "s", "e", "w"] : []}
+        hideDefaultLines={!selected}
         snappable={snapEnabled}
         snapThreshold={Math.max(4, gridSize)}
         snapGridWidth={snapEnabled ? gridSize : 0}
@@ -74,9 +75,15 @@ export function CanvasBlock({
         elementSnapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
         isDisplaySnapDigit={false}
         onDragStart={(e) => {
-          // only the header drags the block; body clicks must keep editing text
+          // drag from the header or any empty spot; never hijack text/buttons/rows
           const src = e.inputEvent?.target as HTMLElement | null;
-          if (!src?.closest(".block-drag-handle")) {
+          const interactive = src?.closest(
+            ".ProseMirror, input, button, textarea, select, [contenteditable], .group",
+          );
+          const grabbable =
+            src?.closest(".block-drag-handle") ||
+            (!interactive && src?.closest(".canvas-block"));
+          if (!grabbable) {
             e.stopDrag();
             return;
           }

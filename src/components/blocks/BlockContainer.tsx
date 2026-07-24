@@ -50,6 +50,7 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
   };
 
   const toggleMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     if (menuPos) {
       setMenuPos(null);
       return;
@@ -96,7 +97,8 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
         )}
         <button
           ref={menuButtonRef}
-          onClick={toggleMenu}
+          onMouseUp={toggleMenu}
+          onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[13px] text-ink-soft hover:text-ink"
           title="Opties"

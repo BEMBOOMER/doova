@@ -145,14 +145,6 @@ export function SettingsView() {
               className="mt-1 w-full accent-[var(--color-accent)]"
             />
           </label>
-          <div className="mt-3 border-t border-border-themed/30 pt-2">
-            <Toggle
-              label="Google Agenda"
-              hint="Binnenkort"
-              value={false}
-              onChange={() => showToast("Google Agenda-koppeling komt in een latere versie")}
-            />
-          </div>
         </Section>
 
         <Section title="Data">

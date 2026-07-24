@@ -64,6 +64,13 @@ function ProjectRow({ tab, isActive }: { tab: ProjectTab; isActive: boolean }) {
     setMenuPos(null);
   };
 
+  const openMenuAt = (x: number, y: number) => {
+    setMenuPos({
+      x: Math.min(x, window.innerWidth - 210),
+      y: Math.min(y, window.innerHeight - 220),
+    });
+  };
+
   const others = tabs.filter((t) => t.id !== tab.id);
 
   return (
@@ -79,6 +86,10 @@ function ProjectRow({ tab, isActive }: { tab: ProjectTab; isActive: boolean }) {
       onDoubleClick={() => {
         setDraft(tab.name);
         setEditing(true);
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openMenuAt(e.clientX, e.clientY);
       }}
       className={`group flex cursor-pointer items-center gap-2 rounded-themed-sm px-2.5 py-1.5 text-[13px] transition-colors ${
         isActive ? "bg-accent font-semibold text-accent-ink" : "text-ink hover:bg-surface-raised"
@@ -102,17 +113,22 @@ function ProjectRow({ tab, isActive }: { tab: ProjectTab; isActive: boolean }) {
       )}
       <button
         ref={menuButtonRef}
-        onClick={(e) => {
+        onMouseUp={(e) => {
+          // mouseup instead of click: WebKit can swallow click after a
+          // propagation-stopped pointerdown inside a dnd-kit sortable
           e.stopPropagation();
           if (menuPos) {
             setMenuPos(null);
             return;
           }
           const rect = e.currentTarget.getBoundingClientRect();
-          setMenuPos({ x: rect.right + 4, y: Math.min(rect.top, window.innerHeight - 200) });
+          openMenuAt(rect.right + 4, rect.top);
         }}
+        onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
-        className="hidden h-5 w-5 shrink-0 items-center justify-center rounded text-[12px] opacity-70 hover:opacity-100 group-hover:flex"
+        className={`h-5 w-5 shrink-0 items-center justify-center rounded text-[12px] opacity-70 hover:opacity-100 ${
+          isActive ? "flex" : "hidden group-hover:flex"
+        }`}
         title="Opties"
       >
         ⋯

@@ -65,6 +65,31 @@
   --blur: none;
 }
 
+/* Dark mode: vibrancy turns dark, so surfaces and text must flip too */
+@media (prefers-color-scheme: dark) {
+  [data-theme="glass"] {
+    --surface: rgba(50, 50, 58, 0.38);
+    --surface-raised: rgba(90, 90, 100, 0.45);
+    --ink: #f5f5f7;
+    --ink-soft: rgba(245, 245, 247, 0.55);
+    --border-color: rgba(255, 255, 255, 0.16);
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+  [data-theme="glass"] .panel::before {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 38%) !important;
+  }
+  :root.no-vibrancy[data-theme="glass"] body {
+    background: linear-gradient(160deg, #1c1d22, #23202b 55%, #1d2229) !important;
+  }
+  :root.reduce-transparency[data-theme="glass"] {
+    --surface: rgba(40, 40, 46, 0.92) !important;
+    --surface-raised: rgba(60, 60, 68, 0.95) !important;
+    --border-color: rgba(255, 255, 255, 0.12) !important;
+  }
+}
+
 /* Opaque, maximally readable variant (settings toggle) */
 :root.reduce-transparency[data-theme="glass"] {
   --surface: rgba(255, 255, 255, 0.85);
@@ -98,13 +123,16 @@ textarea,
   cursor: text;
 }
 
-/* Panel: the standard themed surface used by blocks, popovers, settings */
-.panel {
-  position: relative;
-  background: var(--surface);
-  border: var(--border-width) solid var(--border-color);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+/* Panel: the standard themed surface used by blocks, popovers, settings.
+   In @layer components so Tailwind position utilities (absolute/fixed) win. */
+@layer components {
+  .panel {
+    position: relative;
+    background: var(--surface);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
 }
 [data-theme="glass"] .panel {
   backdrop-filter: var(--blur);
@@ -150,7 +178,13 @@ body.is-interacting [data-theme="glass"] .panel,
 /* Canvas blocks: shadow must never be clipped, so only the body scrolls */
 .canvas-block {
   overflow: visible;
+  animation: pop-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transition: box-shadow 0.15s ease;
 }
+body:not(.is-interacting) .canvas-block:hover {
+  box-shadow: var(--shadow), 0 4px 18px rgba(0, 0, 0, 0.1);
+}
+aside { transition: width 0.22s cubic-bezier(0.3, 0.8, 0.3, 1); }
 .canvas-block > .block-body {
   border-radius: 0 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px);
 }

@@ -1,5 +1,38 @@
 # Doova v0.2 — status & handoff
 
+## Update: feedback-ronde v0.2.1 (na eerste handtest van Roelof)
+
+Verwerkt naar aanleiding van echte-hardware-test:
+
+- **Dark mode**: het glass-thema had geen donkere variant; op een Mac in dark mode werd de
+  vibrancy donker terwijl tekst bijna-zwart bleef. Nu volledige `prefers-color-scheme: dark`
+  set (donkere surfaces, witte ink, aangepaste glasrand/schaduwen + no-vibrancy en
+  reduce-transparency donkere fallbacks).
+- **"Rare groene outlines"**: dat waren Moveable's altijd-zichtbare control-lijnen in de
+  accentkleur. Nu `hideDefaultLines` als een blok niet geselecteerd is.
+- **"Alles beweegt bij resize"**: de canvas-maat groeide/kromp mee met de blok-extents,
+  waardoor scrollbars en content versprongen. Canvas is nu ruim en grow-only
+  (min 3200×2200 + 600 marge).
+- **Makkelijker verplaatsen**: slepen kan nu ook vanaf elk leeg stuk blok (niet alleen de
+  header); tekst, knoppen, inputs en rijen blijven gewoon klikbaar (allowlist-check in
+  `onDragStart`).
+- **Plus-knop**: stond door een CSS-conflict linksboven — `.panel { position: relative }`
+  overschreef Tailwind's `absolute/fixed` (zelfde specificiteit, latere bron wint).
+  `.panel` zit nu in `@layer components` zodat utilities altijd winnen. **Dit was ook een
+  latente bug voor de blok-positionering zelf.** Plus staat nu als ronde FAB rechtsonder.
+- **Rechtsklik-menu op canvas**: "Nieuw blok hier" + "Agenda-blok".
+- **Animaties**: pop-in bij blok-aanmaak (springy cubic-bezier), hover-schaduwlift
+  (uit tijdens interactie), zijbalk-inklap-transitie.
+- **Project ⋯-menu deed niks** (WebKit): toggle verplaatst van `click` naar `mouseup`
+  (WebKit kan click inslikken na een propagation-gestopte pointerdown binnen een dnd-kit
+  sortable), ⋯ altijd zichtbaar op de actieve rij, en rechtsklik op een projectrij opent
+  hetzelfde menu. Blok-⋯ kreeg dezelfde behandeling.
+- **Google Agenda-toggle** uit Settings verwijderd (kwam later wel een keer).
+
+Nog open uit deze feedback: **sneltoetsen customizen** (gevraagd; nog niet gebouwd — zie
+verbeterpunten) en een verse handtest van drag/resize/snap na deze fixes.
+
+
 Voor wie hierna verder werkt (Codex/andere AI/mezelf later). Doova is een macOS-app
 (Tauri v2 + React 18 + TypeScript + Zustand + Tailwind + Tiptap) in
 `~/Desktop/Bemboe/Coding & Design/Coding/doova/` — **pad bevat spaties en `&`, altijd quoten in shell.**
