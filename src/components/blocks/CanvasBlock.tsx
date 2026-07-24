@@ -68,22 +68,19 @@ export function CanvasBlock({
         hideDefaultLines={!selected}
         snappable={snapEnabled}
         snapThreshold={Math.max(4, gridSize)}
-        snapGridWidth={snapEnabled ? gridSize : 0}
-        snapGridHeight={snapEnabled ? gridSize : 0}
         elementGuidelines={snapEnabled ? otherTargets : []}
         snapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
         elementSnapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
         isDisplaySnapDigit={false}
         onDragStart={(e) => {
-          // drag from the header or any empty spot; never hijack text/buttons/rows
+          // drag from the header or any empty spot; never hijack text, rows,
+          // or buttons (React's stopPropagation is too late for Moveable's
+          // native listener, so buttons must be excluded here explicitly)
           const src = e.inputEvent?.target as HTMLElement | null;
           const interactive = src?.closest(
             ".ProseMirror, input, button, textarea, select, [contenteditable], .group",
           );
-          const grabbable =
-            src?.closest(".block-drag-handle") ||
-            (!interactive && src?.closest(".canvas-block"));
-          if (!grabbable) {
+          if (interactive || !src?.closest(".canvas-block")) {
             e.stopDrag();
             return;
           }

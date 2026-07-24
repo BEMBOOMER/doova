@@ -8,6 +8,7 @@ import type {
   ChecklistItem,
   FileOrganizerItem,
   NoteBlockData,
+  ProjectFolder,
   ProjectTab,
 } from "../types";
 import {
@@ -171,6 +172,7 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
 
 interface ProjectsState {
   tabs: ProjectTab[];
+  folders: ProjectFolder[];
   activeTabId: string | null;
   loaded: boolean;
   /** true when data.json exists but could not be read: never overwrite it */
@@ -184,9 +186,16 @@ interface ProjectsState {
   restoreTab: (tab: ProjectTab, index: number) => void;
   setActiveTab: (tabId: string) => void;
   reorderTabs: (fromId: string, toId: string) => void;
-  mergeProjects: (sourceId: string, targetId: string) => void;
+  /** puts both projects in a new collapsible sidebar folder */
+  groupProjects: (aId: string, bId: string) => void;
+  renameFolder: (folderId: string, name: string) => void;
+  toggleFolder: (folderId: string) => void;
+  /** removes the folder; the projects stay, back at top level */
+  dissolveFolder: (folderId: string) => void;
+  moveTabToFolder: (tabId: string, folderId: string | null) => void;
 
   addBlock: (at?: { x: number; y: number }) => string;
+  addCalendarBlock: (at?: { x: number; y: number }) => void;
   removeBlock: (blockId: string) => void;
   restoreBlock: (tabId: string, block: Block) => void;
   renameBlock: (blockId: string, title: string) => void;
@@ -199,7 +208,6 @@ interface ProjectsState {
 
   setNoteContent: (blockId: string, content: JSONContent) => void;
   promoteBlockToFileOrganizer: (blockId: string, items: FileOrganizerItem[]) => void;
-  addCalendarBlock: () => void;
 
   addFileItem: (blockId: string, item: FileOrganizerItem) => void;
   removeFileItem: (blockId: string, itemId: string) => void;
@@ -210,11 +218,14 @@ interface ProjectsState {
   removeEvent: (blockId: string, eventId: string) => void;
 }
 
-function persist(state: Pick<ProjectsState, "tabs" | "activeTabId" | "loaded" | "loadFailed">) {
+function persist(
+  state: Pick<ProjectsState, "tabs" | "folders" | "activeTabId" | "loaded" | "loadFailed">,
+) {
   if (!state.loaded || state.loadFailed) return;
   const data: AppData = {
     schemaVersion: SCHEMA_VERSION,
     tabs: state.tabs,
+    folders: state.folders,
     activeTabId: state.activeTabId,
   };
   saveJsonDebounced(DATA_FILE, data);
@@ -242,6 +253,7 @@ function withBlock(
 
 export const useProjectsStore = create<ProjectsState>((set, get) => ({
   tabs: [],
+  folders: [],
   activeTabId: null,
   loaded: false,
   loadFailed: false,
@@ -250,14 +262,15 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     const result = await loadJson<AppData>(DATA_FILE);
     if (result.status === "ok" && Array.isArray(result.data.tabs) && result.data.tabs.length > 0) {
       const data = result.data;
+      const folders = Array.isArray(data.folders) ? data.folders : [];
       if (data.schemaVersion > SCHEMA_VERSION) {
         console.error(`data.json has schema ${data.schemaVersion}, app supports ${SCHEMA_VERSION}`);
-        set({ tabs: normalizeTabs(data.tabs), activeTabId: data.tabs[0].id, loaded: true, loadFailed: true });
+        set({ tabs: normalizeTabs(data.tabs), folders, activeTabId: data.tabs[0].id, loaded: true, loadFailed: true });
         return;
       }
       const tabs = normalizeTabs(data.tabs);
       const activeTabId = tabs.some((t) => t.id === data.activeTabId) ? data.activeTabId : tabs[0].id;
-      set({ tabs, activeTabId, loaded: true });
+      set({ tabs, folders, activeTabId, loaded: true });
       if (data.schemaVersion < SCHEMA_VERSION) persist(get()); // write migrated shape once
     } else if (result.status === "error") {
       const first = makeTab("Project 1");
@@ -322,27 +335,58 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     persist(get());
   },
 
-  mergeProjects: (sourceId, targetId) => {
-    if (sourceId === targetId) return;
+  groupProjects: (aId, bId) => {
+    if (aId === bId) return;
     set((s) => {
-      const source = s.tabs.find((t) => t.id === sourceId);
-      const target = s.tabs.find((t) => t.id === targetId);
-      if (!source || !target) return s;
-      const bottom = Math.max(0, ...target.blocks.map((b) => b.layout.y + b.layout.height));
-      const minSourceY = Math.min(CANVAS_PAD, ...source.blocks.map((b) => b.layout.y));
-      const offsetY = target.blocks.length > 0 ? bottom + GAP - minSourceY + CANVAS_PAD : 0;
-      const zBase = maxZ(target.blocks);
-      const targetIds = new Set(target.blocks.map((b) => b.id));
-      const moved = source.blocks.map((b, i) => ({
-        ...b,
-        id: targetIds.has(b.id) ? newId() : b.id,
-        layout: { ...b.layout, y: b.layout.y + offsetY, z: zBase + i + 1 },
-      }));
-      const tabs = s.tabs
-        .filter((t) => t.id !== sourceId)
-        .map((t) => (t.id === targetId ? { ...t, blocks: [...t.blocks, ...moved] } : t));
-      return { tabs, activeTabId: targetId };
+      const a = s.tabs.find((t) => t.id === aId);
+      const b = s.tabs.find((t) => t.id === bId);
+      if (!a || !b) return s;
+      // reuse b's folder when it already lives in one
+      const existing = b.folderId ? s.folders.find((f) => f.id === b.folderId) : null;
+      if (existing) {
+        return {
+          tabs: s.tabs.map((t) => (t.id === aId ? { ...t, folderId: existing.id } : t)),
+        };
+      }
+      const folder: ProjectFolder = { id: newId(), name: "Nieuwe map", collapsed: false };
+      return {
+        folders: [...s.folders, folder],
+        tabs: s.tabs.map((t) =>
+          t.id === aId || t.id === bId ? { ...t, folderId: folder.id } : t,
+        ),
+      };
     });
+    persist(get());
+  },
+
+  renameFolder: (folderId, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    set((s) => ({
+      folders: s.folders.map((f) => (f.id === folderId ? { ...f, name: trimmed } : f)),
+    }));
+    persist(get());
+  },
+
+  toggleFolder: (folderId) => {
+    set((s) => ({
+      folders: s.folders.map((f) => (f.id === folderId ? { ...f, collapsed: !f.collapsed } : f)),
+    }));
+    persist(get());
+  },
+
+  dissolveFolder: (folderId) => {
+    set((s) => ({
+      folders: s.folders.filter((f) => f.id !== folderId),
+      tabs: s.tabs.map((t) => (t.folderId === folderId ? { ...t, folderId: null } : t)),
+    }));
+    persist(get());
+  },
+
+  moveTabToFolder: (tabId, folderId) => {
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, folderId } : t)),
+    }));
     persist(get());
   },
 
@@ -359,17 +403,19 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     return id;
   },
 
-  addCalendarBlock: () => {
+  addCalendarBlock: (at) => {
     set((s) => ({
       tabs: withTab(s.tabs, s.activeTabId, (t) => {
-        const base = makeBlock(t.blocks);
-        return {
-          ...t,
-          blocks: [
-            ...t.blocks,
-            { ...base, type: "calendar", title: "Agenda", events: [], content: undefined } as unknown as Block,
-          ],
+        const base = makeBlock(t.blocks, at);
+        const calendar: Block = {
+          id: base.id,
+          type: "calendar",
+          title: "Agenda",
+          createdAt: base.createdAt,
+          layout: base.layout,
+          events: [],
         };
+        return { ...t, blocks: [...t.blocks, calendar] };
       }),
     }));
     persist(get());

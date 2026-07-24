@@ -32,6 +32,27 @@ Verwerkt naar aanleiding van echte-hardware-test:
 Nog open uit deze feedback: **sneltoetsen customizen** (gevraagd; nog niet gebouwd — zie
 verbeterpunten) en een verse handtest van drag/resize/snap na deze fixes.
 
+## Update: feedback-ronde 2
+
+- **Snapping is nu macOS-achtig**: alleen magnetisch bij randen van andere blokken/canvas
+  (elementGuidelines + threshold), het constante grid-snappen (`snapGridWidth/Height`) is
+  weg. Settings-label heet nu "Snap-gevoeligheid" (zelfde `gridSize`-veld hergebruikt als
+  threshold). Verder volledig vrije, vloeiende plaatsing.
+- **Samenvoegen → groeperen in mappen**: `groupProjects(a,b)` maakt een sidebar-map
+  (`ProjectFolder {id,name,collapsed}`, `ProjectTab.folderId`) i.p.v. blokken samen te
+  gooien. Map: klik = in/uitklappen, dubbelklik = hernoemen, ⋯ = hernoemen/opheffen
+  (projecten blijven). Project-⋯ heeft "Groepeer met…" en "Uit map halen". Bestond b al in
+  een map, dan schuift a daarbij in. `mergeProjects` (blokken-merge) is VERWIJDERD uit
+  store en UI. Optionele velden op AppData → geen schema-bump nodig.
+  Beperking: projecten ín een map zijn niet dnd-sorteerbaar (bewust, houdt dnd simpel).
+- **⋯-menu sleepte het blok mee**: React's stopPropagation op de header-knoppen is te laat
+  voor Moveable's native listener op het blok-element. De drag-guard checkt nu EERST op
+  interactieve elementen (button/input/editor/rijen) en stopt de drag daar altijd.
+- **Agenda-blok op muispositie**: `addCalendarBlock(at?)` + contextmenu geeft de
+  canvas-coördinaat door ("Agenda-blok hier"); ⌘K-versie gebruikt nog het vrije-slot-algoritme.
+  Ook netter getypeerd (geen `as unknown as Block` meer).
+- **Glas transparanter**: licht 0.28→0.18 (raised 0.45→0.34), donker 0.38→0.26 (0.45→0.36).
+
 
 Voor wie hierna verder werkt (Codex/andere AI/mezelf later). Doova is een macOS-app
 (Tauri v2 + React 18 + TypeScript + Zustand + Tailwind + Tiptap) in

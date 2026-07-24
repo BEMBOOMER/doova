@@ -129,12 +129,12 @@ export function SettingsView() {
         <Section title="Canvas">
           <Toggle
             label="Magnetisch snappen"
-            hint="Blokken klikken vast aan elkaar en aan het raster"
+            hint="Blokken klikken vast als ze dicht bij elkaar of een rand komen"
             value={settings.snapEnabled}
             onChange={(v) => settings.update({ snapEnabled: v })}
           />
           <label className="mt-2 block">
-            <span className="text-[13px] text-ink">Rastergrootte: {settings.gridSize}px</span>
+            <span className="text-[13px] text-ink">Snap-gevoeligheid: {settings.gridSize}px</span>
             <input
               type="range"
               min={2}

@@ -123,16 +123,25 @@ export interface CalendarBlockData extends BaseBlock {
 export type Block = NoteBlockData | FileOrganizerBlockData | CalendarBlockData;
 
 // ---------- project / app ----------
+export interface ProjectFolder {
+  id: string;
+  name: string;
+  collapsed: boolean;
+}
+
 export interface ProjectTab {
   id: string;
   name: string;
   blocks: Block[];
   createdAt: string;
+  /** set when the project lives inside a sidebar folder */
+  folderId?: string | null;
 }
 
 export interface AppData {
   schemaVersion: number;
   tabs: ProjectTab[];
+  folders?: ProjectFolder[];
   activeTabId: string | null;
 }
 

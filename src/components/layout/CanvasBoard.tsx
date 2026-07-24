@@ -140,12 +140,12 @@ export function CanvasBoard() {
             </button>
             <button
               onClick={() => {
-                addCalendarBlock();
+                addCalendarBlock({ x: ctxMenu.canvasX, y: ctxMenu.canvasY });
                 setCtxMenu(null);
               }}
               className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
             >
-              📅 Agenda-blok
+              📅 Agenda-blok hier
             </button>
           </div>,
           document.body,
