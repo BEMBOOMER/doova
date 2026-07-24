@@ -306,11 +306,25 @@ function FolderRow({ folder, children }: { folder: ProjectFolder; children: Reac
 }
 
 export function ProjectList() {
-  const { tabs, folders, activeTabId, reorderTabs } = useProjectsStore();
+  const { tabs, folders, activeTabId, reorderTabs, groupProjects } = useProjectsStore();
+  const showToast = useUiStore((s) => s.showToast);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const onDragEnd = (e: DragEndEvent) => {
-    if (e.over && e.active.id !== e.over.id) {
+    if (!e.over || e.active.id === e.over.id) return;
+    // dropped right on top of another project = group them in a folder;
+    // dropped between rows = plain reorder (macOS-like behavior)
+    const activeRect = e.active.rect.current.translated;
+    const overRect = e.over.rect;
+    const centerDiff = activeRect
+      ? Math.abs(activeRect.top + activeRect.height / 2 - (overRect.top + overRect.height / 2))
+      : Number.POSITIVE_INFINITY;
+    if (centerDiff < overRect.height * 0.35) {
+      const a = tabs.find((t) => t.id === e.active.id);
+      const b = tabs.find((t) => t.id === e.over!.id);
+      groupProjects(String(e.active.id), String(e.over.id));
+      if (a && b) showToast(`"${a.name}" en "${b.name}" staan nu in een map`);
+    } else {
       reorderTabs(String(e.active.id), String(e.over.id));
     }
   };

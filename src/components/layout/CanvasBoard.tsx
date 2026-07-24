@@ -1,8 +1,136 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { Block, BlockGroup } from "../../types";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CanvasBlock } from "../blocks/CanvasBlock";
+
+/** Pill above an expanded group, and chip that replaces a collapsed one. */
+function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] }) {
+  const { toggleBlockGroup, renameBlockGroup, dissolveBlockGroup } = useProjectsStore();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(group.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  useEffect(() => {
+    if (!menuPos) return;
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuPos(null);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [menuPos]);
+
+  const commit = () => {
+    renameBlockGroup(group.id, draft);
+    setEditing(false);
+  };
+
+  const name = editing ? (
+    <input
+      ref={inputRef}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") setEditing(false);
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className="w-24 bg-transparent text-[12px] outline-none"
+    />
+  ) : (
+    <span className="heading truncate text-[12px]">{group.name}</span>
+  );
+
+  const menu =
+    menuPos &&
+    createPortal(
+      <div
+        ref={menuRef}
+        className="panel pop-in fixed z-[80] p-1.5"
+        style={{ left: menuPos.x, top: menuPos.y, width: 190 }}
+      >
+        <button
+          onClick={() => {
+            setMenuPos(null);
+            setDraft(group.name);
+            setEditing(true);
+          }}
+          className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+        >
+          ✎ Hernoemen
+        </button>
+        <button
+          onClick={() => {
+            dissolveBlockGroup(group.id);
+            setMenuPos(null);
+          }}
+          className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+        >
+          ⇱ Groep opheffen (blokken blijven)
+        </button>
+      </div>,
+      document.body,
+    );
+
+  if (group.collapsed) {
+    return (
+      <div
+        className="panel pop-in absolute flex cursor-pointer items-center gap-2 px-3 py-2.5"
+        style={{ left: group.x, top: group.y, width: 230, zIndex: 500 }}
+        onClick={() => toggleBlockGroup(group.id)}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          setDraft(group.name);
+          setEditing(true);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenuPos({ x: e.clientX, y: e.clientY });
+        }}
+        title="Klik om uit te klappen"
+      >
+        <span className="text-[13px]">🗂</span>
+        <span className="min-w-0 flex-1">{name}</span>
+        <span className="shrink-0 text-[11px] text-ink-soft">{members.length} blokken ▸</span>
+        {menu}
+      </div>
+    );
+  }
+
+  const minX = Math.min(...members.map((b) => b.layout.x));
+  const minY = Math.min(...members.map((b) => b.layout.y));
+
+  return (
+    <div
+      className="panel absolute flex cursor-pointer items-center gap-1.5 px-2.5 py-1"
+      style={{ left: minX, top: Math.max(0, minY - 34), zIndex: 500 }}
+      onClick={() => toggleBlockGroup(group.id)}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        setDraft(group.name);
+        setEditing(true);
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setMenuPos({ x: e.clientX, y: e.clientY });
+      }}
+      title="Klik om in te klappen"
+    >
+      <span className="text-[10px]">▾</span>
+      {name}
+      <span className="text-[10.5px] text-ink-soft">{members.length}</span>
+      {menu}
+    </div>
+  );
+}
 
 /**
  * Canvas is generously sized and grow-only, so resizing or moving a block
@@ -88,17 +216,33 @@ export function CanvasBoard() {
             if (e.target === e.currentTarget) setSelectedBlockId(null);
           }}
         >
-          {tab.blocks.map((block) => (
-            <CanvasBlock
-              key={block.id}
-              block={block}
-              tabId={tab.id}
-              otherTargets={[...targetsRef.current.entries()]
-                .filter(([id]) => id !== block.id)
-                .map(([, el]) => el)}
-              registerTarget={registerTarget}
-            />
-          ))}
+          {(() => {
+            const groups = tab.groups ?? [];
+            const collapsedIds = new Set(groups.filter((g) => g.collapsed).map((g) => g.id));
+            const visible = tab.blocks.filter(
+              (b) => !b.groupId || !collapsedIds.has(b.groupId),
+            );
+            return (
+              <>
+                {visible.map((block) => (
+                  <CanvasBlock
+                    key={block.id}
+                    block={block}
+                    tabId={tab.id}
+                    otherTargets={[...targetsRef.current.entries()]
+                      .filter(([id]) => id !== block.id)
+                      .map(([, el]) => el)}
+                    registerTarget={registerTarget}
+                  />
+                ))}
+                {groups.map((group) => {
+                  const members = tab.blocks.filter((b) => b.groupId === group.id);
+                  if (members.length === 0) return null;
+                  return <GroupOverlay key={group.id} group={group} members={members} />;
+                })}
+              </>
+            );
+          })()}
           {tab.blocks.length === 0 && (
             <div className="pointer-events-none absolute left-0 top-0 flex h-[60vh] w-full items-center justify-center text-ink-soft">
               <div className="text-center">

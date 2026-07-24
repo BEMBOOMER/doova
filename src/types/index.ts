@@ -26,7 +26,7 @@ export const DEFAULT_SETTINGS: SettingsData = {
   theme: "glass",
   accentColor: "lightblue",
   snapEnabled: true,
-  gridSize: 8,
+  gridSize: 5,
   compactMode: false,
   reduceTransparency: false,
   sidebarCollapsed: false,
@@ -101,6 +101,17 @@ interface BaseBlock {
   createdAt: string;
   layout: BlockLayout;
   color?: string | null;
+  /** set when the block belongs to a collapsible canvas group */
+  groupId?: string | null;
+}
+
+/** Collapsible group of blocks on the canvas; x/y is where the chip sits while collapsed. */
+export interface BlockGroup {
+  id: string;
+  name: string;
+  collapsed: boolean;
+  x: number;
+  y: number;
 }
 
 export interface NoteBlockData extends BaseBlock {
@@ -133,6 +144,7 @@ export interface ProjectTab {
   id: string;
   name: string;
   blocks: Block[];
+  groups?: BlockGroup[];
   createdAt: string;
   /** set when the project lives inside a sidebar folder */
   folderId?: string | null;

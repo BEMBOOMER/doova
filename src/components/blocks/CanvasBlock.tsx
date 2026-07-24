@@ -67,10 +67,12 @@ export function CanvasBlock({
         renderDirections={selected ? ["nw", "ne", "sw", "se", "n", "s", "e", "w"] : []}
         hideDefaultLines={!selected}
         snappable={snapEnabled}
-        snapThreshold={Math.max(4, gridSize)}
+        snapThreshold={Math.max(1, gridSize)}
         elementGuidelines={snapEnabled ? otherTargets : []}
-        snapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
-        elementSnapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
+        snapDirections={{ top: true, left: true, bottom: true, right: true }}
+        elementSnapDirections={{ top: true, left: true, bottom: true, right: true }}
+        maxSnapElementGuidelineDistance={60}
+        maxSnapElementGapDistance={60}
         isDisplaySnapDigit={false}
         onDragStart={(e) => {
           // drag from the header or any empty spot; never hijack text, rows,

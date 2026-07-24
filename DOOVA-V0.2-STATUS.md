@@ -53,6 +53,31 @@ verbeterpunten) en een verse handtest van drag/resize/snap na deze fixes.
   Ook netter getypeerd (geen `as unknown as Block` meer).
 - **Glas transparanter**: licht 0.28→0.18 (raised 0.45→0.34), donker 0.38→0.26 (0.45→0.36).
 
+## Update: feedback-ronde 3
+
+- **Snapping is nu écht nabijheids-gebaseerd**: het "overal snappen" kwam doordat Moveable's
+  element-guidelines oneindig doorlopen. Nu `maxSnapElementGuidelineDistance/GapDistance=60`
+  (alleen blokken in de buurt doen mee), alleen randen (geen center/middle),
+  `snapThreshold` = instelbare snap-gevoeligheid (default 5px, slider 1-20).
+- **Liquid glass thema** naar Roelofs CSS-voorbeeld: blur omlaag naar 6px (was 32) met
+  saturate 1.8, vulling 0.14 alpha, heldere rand 0.75, `--glass-glow` (inset 0 4px 20px wit)
+  via `.panel::before`, en een nieuwe `.panel::after` rim (inset onder/rechts witte
+  edge-lights, blur 1px + brightness 115%) — het "liquid" refractie-randje. Donkere variant
+  met gedempte waarden. Bemboe onaangetast.
+- **Blok-groepen op het canvas**: `BlockGroup {id,name,collapsed,x,y}` per tab +
+  `Block.groupId`. Koppelen via blok-⋯ "Koppel met…" (of later drag). Uitgeklapt: pill
+  "▾ naam N" boven de bounding-box (klik = inklappen, dubbelklik = hernoemen, rechtsklik =
+  menu). Ingeklapt: chip "🗂 naam — N blokken ▸" op de onthouden plek; leden worden niet
+  gerenderd. Groepen lossen vanzelf op onder de 2 leden. Duplicaat krijgt geen groupId.
+- **Project op project slepen = map**: in `onDragEnd` wordt drop-op-het-midden (< 35%
+  rijhoogte verschil) onderscheiden van reorder → `groupProjects` + toast.
+- Blok-⋯-menu y-clamp verruimd voor het langere menu.
+
+Openstaand na deze ronde: het "touwtje" (visuele lijn tussen gekoppelde blokken) is NIET
+gebouwd — groepen zijn de gekozen vorm; een SVG-verbindingslaag kan later bovenop
+`groupId` (of een apart `links`-model) gebouwd worden. Handtest nodig voor het nieuwe
+snap-gevoel en de groep-interacties op echte hardware.
+
 
 Voor wie hierna verder werkt (Codex/andere AI/mezelf later). Doova is een macOS-app
 (Tauri v2 + React 18 + TypeScript + Zustand + Tailwind + Tiptap) in

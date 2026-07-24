@@ -137,9 +137,9 @@ export function SettingsView() {
             <span className="text-[13px] text-ink">Snap-gevoeligheid: {settings.gridSize}px</span>
             <input
               type="range"
-              min={2}
-              max={32}
-              step={2}
+              min={1}
+              max={20}
+              step={1}
               value={settings.gridSize}
               onChange={(e) => settings.update({ gridSize: Number(e.target.value) })}
               className="mt-1 w-full accent-[var(--color-accent)]"

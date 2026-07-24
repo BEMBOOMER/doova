@@ -15,8 +15,19 @@ const TYPE_ICONS: Record<Block["type"], string> = {
 };
 
 export function BlockContainer({ block, tabId }: { block: Block; tabId: string }) {
-  const { renameBlock, removeBlock, restoreBlock, duplicateBlock, setBlockColor } =
-    useProjectsStore();
+  const {
+    renameBlock,
+    removeBlock,
+    restoreBlock,
+    duplicateBlock,
+    setBlockColor,
+    groupBlocks,
+    removeBlockFromGroup,
+    tabs,
+    activeTabId,
+  } = useProjectsStore();
+  const otherBlocks =
+    tabs.find((t) => t.id === activeTabId)?.blocks.filter((b) => b.id !== block.id) ?? [];
   const showToast = useUiStore((s) => s.showToast);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(block.title);
@@ -59,7 +70,7 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
     const width = 200;
     setMenuPos({
       x: Math.min(Math.max(rect.right - width, 8), window.innerWidth - width - 8),
-      y: Math.min(rect.bottom + 4, window.innerHeight - 180),
+      y: Math.min(rect.bottom + 4, window.innerHeight - 340),
     });
   };
 
@@ -135,6 +146,36 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
             >
               ⧉ Dupliceren
             </button>
+            {block.groupId && (
+              <button
+                onClick={() => {
+                  removeBlockFromGroup(block.id);
+                  setMenuPos(null);
+                }}
+                className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+              >
+                ⇱ Uit groep halen
+              </button>
+            )}
+            {otherBlocks.length > 0 && (
+              <>
+                <p className="mb-0.5 mt-1.5 px-2 text-[11px] text-ink-soft">Koppel met…</p>
+                <div className="max-h-32 overflow-y-auto">
+                  {otherBlocks.map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => {
+                        groupBlocks(block.id, b.id);
+                        setMenuPos(null);
+                      }}
+                      className="w-full truncate rounded-themed-sm px-2 py-1 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+                    >
+                      🔗 {b.title}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <p className="mb-1 mt-2 px-2 text-[11px] text-ink-soft">Kleur</p>
             <div className="flex flex-wrap gap-1 px-2 pb-1">
               <button

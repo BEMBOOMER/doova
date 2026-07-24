@@ -18,8 +18,8 @@ function sanitize(saved: Partial<SettingsData> | null): SettingsData {
       : DEFAULT_SETTINGS.accentColor,
     snapEnabled: saved?.snapEnabled ?? DEFAULT_SETTINGS.snapEnabled,
     gridSize:
-      typeof saved?.gridSize === "number" && saved.gridSize >= 2 && saved.gridSize <= 32
-        ? saved.gridSize
+      typeof saved?.gridSize === "number" && saved.gridSize >= 1 && saved.gridSize <= 32
+        ? Math.min(saved.gridSize, 20)
         : DEFAULT_SETTINGS.gridSize,
     compactMode: saved?.compactMode ?? DEFAULT_SETTINGS.compactMode,
     reduceTransparency: saved?.reduceTransparency ?? DEFAULT_SETTINGS.reduceTransparency,

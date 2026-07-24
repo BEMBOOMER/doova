@@ -3,6 +3,7 @@ import type { JSONContent } from "@tiptap/react";
 import type {
   AppData,
   Block,
+  BlockGroup,
   BlockLayout,
   CalendarEvent,
   ChecklistItem,
@@ -164,7 +165,15 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
         return block;
       },
     );
-    return { ...tab, blocks };
+    const groups = Array.isArray(tab.groups) ? tab.groups : [];
+    const validGroupIds = new Set(groups.map((g) => g.id));
+    return {
+      ...tab,
+      blocks: blocks.map((b) =>
+        b.groupId && !validGroupIds.has(b.groupId) ? { ...b, groupId: null } : b,
+      ),
+      groups,
+    };
   });
 }
 
@@ -216,6 +225,13 @@ interface ProjectsState {
   addEvent: (blockId: string, event: Omit<CalendarEvent, "id">) => void;
   updateEvent: (blockId: string, eventId: string, patch: Partial<CalendarEvent>) => void;
   removeEvent: (blockId: string, eventId: string) => void;
+
+  /** puts both blocks in a collapsible canvas group */
+  groupBlocks: (aId: string, bId: string) => void;
+  toggleBlockGroup: (groupId: string) => void;
+  renameBlockGroup: (groupId: string, name: string) => void;
+  dissolveBlockGroup: (groupId: string) => void;
+  removeBlockFromGroup: (blockId: string) => void;
 }
 
 function persist(
@@ -423,10 +439,20 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
 
   removeBlock: (blockId) => {
     set((s) => ({
-      tabs: withTab(s.tabs, s.activeTabId, (t) => ({
-        ...t,
-        blocks: t.blocks.filter((b) => b.id !== blockId),
-      })),
+      tabs: withTab(s.tabs, s.activeTabId, (t) => {
+        const blocks = t.blocks.filter((b) => b.id !== blockId);
+        // drop groups that no longer have at least two members
+        const groups = (t.groups ?? []).filter(
+          (g) => blocks.filter((b) => b.groupId === g.id).length >= 2,
+        );
+        return {
+          ...t,
+          blocks: blocks.map((b) =>
+            b.groupId && !groups.some((g) => g.id === b.groupId) ? { ...b, groupId: null } : b,
+          ),
+          groups,
+        };
+      }),
     }));
     persist(get());
   },
@@ -459,6 +485,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         const clone: Block = JSON.parse(JSON.stringify(src));
         clone.id = newId();
         clone.createdAt = nowIso();
+        clone.groupId = null;
         clone.layout = {
           ...clone.layout,
           x: clone.layout.x + 24,
@@ -613,6 +640,110 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
           ? { ...b, events: b.events.filter((ev) => ev.id !== eventId) }
           : b,
       ),
+    }));
+    persist(get());
+  },
+
+  groupBlocks: (aId, bId) => {
+    if (aId === bId) return;
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => {
+        const a = t.blocks.find((b) => b.id === aId);
+        const b = t.blocks.find((b) => b.id === bId);
+        if (!a || !b) return t;
+        const groups = t.groups ?? [];
+        const existing = b.groupId ? groups.find((g) => g.id === b.groupId) : null;
+        if (existing) {
+          return {
+            ...t,
+            blocks: t.blocks.map((bl) => (bl.id === aId ? { ...bl, groupId: existing.id } : bl)),
+          };
+        }
+        const group: BlockGroup = {
+          id: newId(),
+          name: "Groep",
+          collapsed: false,
+          x: Math.min(a.layout.x, b.layout.x),
+          y: Math.min(a.layout.y, b.layout.y),
+        };
+        return {
+          ...t,
+          groups: [...groups, group],
+          blocks: t.blocks.map((bl) =>
+            bl.id === aId || bl.id === bId ? { ...bl, groupId: group.id } : bl,
+          ),
+        };
+      }),
+    }));
+    persist(get());
+  },
+
+  toggleBlockGroup: (groupId) => {
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => {
+        const members = t.blocks.filter((b) => b.groupId === groupId);
+        return {
+          ...t,
+          groups: (t.groups ?? []).map((g) => {
+            if (g.id !== groupId) return g;
+            if (!g.collapsed && members.length > 0) {
+              // remember where the chip should appear while collapsed
+              return {
+                ...g,
+                collapsed: true,
+                x: Math.min(...members.map((b) => b.layout.x)),
+                y: Math.min(...members.map((b) => b.layout.y)),
+              };
+            }
+            return { ...g, collapsed: false };
+          }),
+        };
+      }),
+    }));
+    persist(get());
+  },
+
+  renameBlockGroup: (groupId, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => ({
+        ...t,
+        groups: (t.groups ?? []).map((g) => (g.id === groupId ? { ...g, name: trimmed } : g)),
+      })),
+    }));
+    persist(get());
+  },
+
+  dissolveBlockGroup: (groupId) => {
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => ({
+        ...t,
+        groups: (t.groups ?? []).filter((g) => g.id !== groupId),
+        blocks: t.blocks.map((b) => (b.groupId === groupId ? { ...b, groupId: null } : b)),
+      })),
+    }));
+    persist(get());
+  },
+
+  removeBlockFromGroup: (blockId) => {
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => {
+        const block = t.blocks.find((b) => b.id === blockId);
+        if (!block?.groupId) return t;
+        const groupId = block.groupId;
+        const blocks = t.blocks.map((b) => (b.id === blockId ? { ...b, groupId: null } : b));
+        const remaining = blocks.filter((b) => b.groupId === groupId).length;
+        return {
+          ...t,
+          blocks:
+            remaining >= 2
+              ? blocks
+              : blocks.map((b) => (b.groupId === groupId ? { ...b, groupId: null } : b)),
+          groups:
+            remaining >= 2 ? t.groups : (t.groups ?? []).filter((g) => g.id !== groupId),
+        };
+      }),
     }));
     persist(get());
   },
