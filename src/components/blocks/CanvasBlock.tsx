@@ -36,6 +36,8 @@ export function CanvasBlock({
     [block.id, registerTarget],
   );
 
+  const blockMenuRef = useRef<((x: number, y: number) => void) | null>(null);
+
   return (
     <>
       <div
@@ -54,8 +56,15 @@ export function CanvasBlock({
           bringToFront(block.id);
           setSelectedBlockId(block.id);
         }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          bringToFront(block.id);
+          setSelectedBlockId(block.id);
+          blockMenuRef.current?.(e.clientX, e.clientY);
+        }}
       >
-        <BlockContainer block={block} tabId={tabId} />
+        <BlockContainer block={block} tabId={tabId} contextMenuRef={blockMenuRef} />
       </div>
       <Moveable
         target={targetRef}

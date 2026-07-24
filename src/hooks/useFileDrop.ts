@@ -12,11 +12,21 @@ import { isTauri } from "../lib/ids";
  * drop on a file-organizer appends; drop on an EMPTY note promotes it to a
  * file-organizer; drop on a filled note or empty canvas creates a new block.
  */
+/**
+ * Geometric hit-test instead of elementsFromPoint: Moveable's overlays and
+ * pointer-events rules made the point lookup miss the block underneath, which
+ * is why drops kept spawning a new block instead of filling the hovered one.
+ * Topmost (highest z-index) wins when blocks overlap.
+ */
 function blockAt(x: number, y: number): string | null {
-  const el = document
-    .elementsFromPoint(x, y)
-    .find((e) => (e as HTMLElement).dataset?.blockId);
-  return el ? ((el as HTMLElement).dataset.blockId ?? null) : null;
+  const candidates = [...document.querySelectorAll<HTMLElement>("[data-block-id]")]
+    .map((el) => ({ el, rect: el.getBoundingClientRect() }))
+    .filter(({ rect }) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)
+    .sort(
+      (a, b) =>
+        (Number(getComputedStyle(a.el).zIndex) || 0) - (Number(getComputedStyle(b.el).zIndex) || 0),
+    );
+  return candidates.length > 0 ? (candidates[candidates.length - 1].el.dataset.blockId ?? null) : null;
 }
 
 function isNoteEmpty(content: JSONContent | null): boolean {

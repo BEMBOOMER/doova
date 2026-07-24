@@ -14,7 +14,16 @@ const TYPE_ICONS: Record<Block["type"], string> = {
   calendar: "📅",
 };
 
-export function BlockContainer({ block, tabId }: { block: Block; tabId: string }) {
+export function BlockContainer({
+  block,
+  tabId,
+  contextMenuRef,
+}: {
+  block: Block;
+  tabId: string;
+  /** lets CanvasBlock open this block's menu from a right-click anywhere on it */
+  contextMenuRef?: React.MutableRefObject<((x: number, y: number) => void) | null>;
+}) {
   const {
     renameBlock,
     removeBlock,
@@ -60,6 +69,14 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
     showToast(`"${block.title}" verwijderd`, "Herstel", () => restoreBlock(tabId, block));
   };
 
+  const openMenuAt = (x: number, y: number) => {
+    const width = 200;
+    setMenuPos({
+      x: Math.min(Math.max(x, 8), window.innerWidth - width - 8),
+      y: Math.min(y, window.innerHeight - 360),
+    });
+  };
+
   const toggleMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (menuPos) {
@@ -67,29 +84,29 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
       return;
     }
     const rect = e.currentTarget.getBoundingClientRect();
-    const width = 200;
-    setMenuPos({
-      x: Math.min(Math.max(rect.right - width, 8), window.innerWidth - width - 8),
-      y: Math.min(rect.bottom + 4, window.innerHeight - 340),
-    });
+    openMenuAt(rect.right - 200, rect.bottom + 4);
   };
+
+  useEffect(() => {
+    if (!contextMenuRef) return;
+    contextMenuRef.current = openMenuAt;
+    return () => {
+      contextMenuRef.current = null;
+    };
+  });
 
   return (
     <>
-      {block.color && (
-        <div
-          className="absolute inset-x-0 top-0 h-1 rounded-t-themed"
-          style={{ background: block.color }}
-        />
-      )}
+      {/* name floats above the panel so the block itself stays all content */}
       <div
-        className="block-drag-handle flex shrink-0 cursor-grab items-center gap-2 px-3 pb-1 pt-2.5 active:cursor-grabbing"
+        className="block-drag-handle absolute -top-[26px] left-1 flex max-w-[calc(100%-8px)] cursor-grab items-center gap-1.5 active:cursor-grabbing"
         onDoubleClick={() => {
           setDraft(block.title);
           setEditing(true);
         }}
+        title="Dubbelklik om te hernoemen, sleep om te verplaatsen"
       >
-        <span className="text-[13px]">{TYPE_ICONS[block.type]}</span>
+        <span className="text-[12px] leading-none">{TYPE_ICONS[block.type]}</span>
         {editing ? (
           <input
             ref={inputRef}
@@ -101,18 +118,31 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
               if (e.key === "Escape") setEditing(false);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none"
+            className="min-w-0 flex-1 bg-transparent text-[12.5px] font-semibold text-ink outline-none"
           />
         ) : (
-          <span className="heading min-w-0 flex-1 truncate text-[13px]">{block.title}</span>
+          <span
+            className="heading truncate text-[12.5px] leading-none text-ink"
+            style={block.color ? { color: block.color } : undefined}
+          >
+            {block.title}
+          </span>
         )}
+      </div>
+      {block.color && (
+        <div
+          className="absolute inset-x-0 top-0 h-1 rounded-t-themed"
+          style={{ background: block.color }}
+        />
+      )}
+      <div className="block-drag-handle flex shrink-0 cursor-grab items-center justify-end gap-1 px-2 pb-0.5 pt-2 active:cursor-grabbing">
         <button
           ref={menuButtonRef}
           onMouseUp={toggleMenu}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[13px] text-ink-soft hover:text-ink"
-          title="Opties"
+          title="Opties (of rechtsklik op het blok)"
         >
           ⋯
         </button>
@@ -176,6 +206,25 @@ export function BlockContainer({ block, tabId }: { block: Block; tabId: string }
                 </div>
               </>
             )}
+            <button
+              onClick={() => {
+                setMenuPos(null);
+                setDraft(block.title);
+                setEditing(true);
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+            >
+              ✎ Hernoemen
+            </button>
+            <button
+              onClick={() => {
+                setMenuPos(null);
+                remove();
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] text-[#ff3b30] hover:bg-[#ff3b30] hover:text-white"
+            >
+              ✕ Blok verwijderen
+            </button>
             <p className="mb-1 mt-2 px-2 text-[11px] text-ink-soft">Kleur</p>
             <div className="flex flex-wrap gap-1 px-2 pb-1">
               <button

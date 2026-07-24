@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useProjectsStore } from "../../stores/projectsStore";
@@ -8,6 +10,17 @@ export function Sidebar() {
   const update = useSettingsStore((s) => s.update);
   const { activeView, setActiveView, setPaletteOpen } = useUiStore();
   const addTab = useProjectsStore((s) => s.addTab);
+  const [sidebarMenu, setSidebarMenu] = useState<{ x: number; y: number } | null>(null);
+  const sidebarMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sidebarMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (!sidebarMenuRef.current?.contains(e.target as Node)) setSidebarMenu(null);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [sidebarMenu]);
 
   if (collapsed) {
     return (
@@ -48,9 +61,49 @@ export function Sidebar() {
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto px-2"
+        onContextMenu={(e) => {
+          // right-click on empty sidebar space: quick project actions
+          if (e.target !== e.currentTarget) return;
+          e.preventDefault();
+          setSidebarMenu({ x: e.clientX, y: e.clientY });
+        }}
+      >
         <ProjectList />
       </div>
+      {sidebarMenu &&
+        createPortal(
+          <div
+            ref={sidebarMenuRef}
+            className="panel pop-in fixed z-[80] p-1.5"
+            style={{
+              left: Math.min(sidebarMenu.x, window.innerWidth - 200),
+              top: Math.min(sidebarMenu.y, window.innerHeight - 120),
+              width: 190,
+            }}
+          >
+            <button
+              onClick={() => {
+                addTab();
+                setSidebarMenu(null);
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+            >
+              ＋ Nieuw project
+            </button>
+            <button
+              onClick={() => {
+                setPaletteOpen(true);
+                setSidebarMenu(null);
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+            >
+              ⌘K Zoeken & acties
+            </button>
+          </div>,
+          document.body,
+        )}
 
       <div className="shrink-0 space-y-0.5 border-t border-border-themed/40 p-2">
         <button

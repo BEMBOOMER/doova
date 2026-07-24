@@ -54,7 +54,8 @@ export interface BlockLayout {
 
 export const DEFAULT_BLOCK_SIZE = { width: 300, height: 380 };
 export const MIN_BLOCK_SIZE = { width: 220, height: 140 };
-export const CANVAS_PAD = 24;
+/** leaves room for the block title that floats above each block */
+export const CANVAS_PAD = 40;
 
 // ---------- legacy checklist (v1, only used by the migration) ----------
 export interface ChecklistLabel {
