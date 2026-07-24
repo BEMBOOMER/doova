@@ -43,7 +43,7 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Placeholder.configure({ placeholder: "Schrijf iets…" }),
+      Placeholder.configure({ placeholder: "Schrijf iets, of sleep een bestand…" }),
     ],
     content: block.content ?? "",
     onUpdate: ({ editor }) => setNoteContent(block.id, editor.getJSON()),

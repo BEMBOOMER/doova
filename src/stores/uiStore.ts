@@ -7,9 +7,21 @@ export interface Toast {
   onAction?: () => void;
 }
 
+export type ActiveView = "canvas" | "settings";
+
 interface UiState {
-  settingsOpen: boolean;
-  setSettingsOpen: (open: boolean) => void;
+  activeView: ActiveView;
+  setActiveView: (view: ActiveView) => void;
+
+  selectedBlockId: string | null;
+  setSelectedBlockId: (id: string | null) => void;
+
+  paletteOpen: boolean;
+  setPaletteOpen: (open: boolean) => void;
+
+  /** true while a block is being dragged/resized: used to pause backdrop blur */
+  interacting: boolean;
+  setInteracting: (v: boolean) => void;
 
   toasts: Toast[];
   showToast: (message: string, actionLabel?: string, onAction?: () => void) => void;
@@ -19,8 +31,20 @@ interface UiState {
 let toastSeq = 0;
 
 export const useUiStore = create<UiState>((set) => ({
-  settingsOpen: false,
-  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  activeView: "canvas",
+  setActiveView: (activeView) => set({ activeView }),
+
+  selectedBlockId: null,
+  setSelectedBlockId: (selectedBlockId) => set({ selectedBlockId }),
+
+  paletteOpen: false,
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+
+  interacting: false,
+  setInteracting: (interacting) => {
+    set({ interacting });
+    document.body.classList.toggle("is-interacting", interacting);
+  },
 
   toasts: [],
   showToast: (message, actionLabel, onAction) => {

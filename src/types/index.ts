@@ -15,11 +15,21 @@ export type AccentColor =
 export interface SettingsData {
   theme: ThemeName;
   accentColor: AccentColor;
+  snapEnabled: boolean;
+  gridSize: number;
+  compactMode: boolean;
+  reduceTransparency: boolean;
+  sidebarCollapsed: boolean;
 }
 
 export const DEFAULT_SETTINGS: SettingsData = {
   theme: "glass",
   accentColor: "lightblue",
+  snapEnabled: true,
+  gridSize: 8,
+  compactMode: false,
+  reduceTransparency: false,
+  sidebarCollapsed: false,
 };
 
 export const ACCENT_COLORS: { id: AccentColor; hex: string; label: string }[] = [
@@ -33,17 +43,30 @@ export const ACCENT_COLORS: { id: AccentColor; hex: string; label: string }[] = 
   { id: "teal", hex: "#06D6A0", label: "Teal" },
 ];
 
-// ---------- checklist ----------
+// ---------- geometry ----------
+export interface BlockLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  z: number;
+}
+
+export const DEFAULT_BLOCK_SIZE = { width: 300, height: 380 };
+export const MIN_BLOCK_SIZE = { width: 220, height: 140 };
+export const CANVAS_PAD = 24;
+
+// ---------- legacy checklist (v1, only used by the migration) ----------
 export interface ChecklistLabel {
   text: string;
-  color: string; // hex, from curated set
+  color: string;
 }
 
 export interface ChecklistItem {
   id: string;
   text: string;
   done: boolean;
-  dueDate: string | null; // ISO date (yyyy-mm-dd)
+  dueDate: string | null;
   label: ChecklistLabel | null;
   subtasks: ChecklistItem[];
 }
@@ -59,23 +82,32 @@ export interface FileOrganizerItem {
   missing?: boolean;
 }
 
+// ---------- calendar ----------
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string; // ISO yyyy-mm-dd
+  time?: string | null; // "HH:mm"
+  note?: string | null;
+  color?: string | null;
+}
+
 // ---------- blocks ----------
-export type BlockType = "note" | "checklist" | "file-organizer";
+export type BlockType = "note" | "file-organizer" | "calendar";
 
 interface BaseBlock {
   id: string;
   title: string;
   createdAt: string;
+  layout: BlockLayout;
+  color?: string | null;
 }
 
 export interface NoteBlockData extends BaseBlock {
   type: "note";
   content: JSONContent | null;
-}
-
-export interface ChecklistBlockData extends BaseBlock {
-  type: "checklist";
-  items: ChecklistItem[];
+  /** original v1 checklist data, kept one schema version for rollback */
+  _legacyChecklist?: ChecklistItem[];
 }
 
 export interface FileOrganizerBlockData extends BaseBlock {
@@ -83,7 +115,12 @@ export interface FileOrganizerBlockData extends BaseBlock {
   items: FileOrganizerItem[];
 }
 
-export type Block = NoteBlockData | ChecklistBlockData | FileOrganizerBlockData;
+export interface CalendarBlockData extends BaseBlock {
+  type: "calendar";
+  events: CalendarEvent[];
+}
+
+export type Block = NoteBlockData | FileOrganizerBlockData | CalendarBlockData;
 
 // ---------- project / app ----------
 export interface ProjectTab {
@@ -99,4 +136,7 @@ export interface AppData {
   activeTabId: string | null;
 }
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+
+/** Marker used in task text to carry a due date through migration/export. */
+export const DUE_MARKER = "⏳";

@@ -1,5 +1,5 @@
 import { Effect, getCurrentWindow } from "@tauri-apps/api/window";
-import type { AccentColor, ThemeName } from "../types";
+import type { AccentColor, SettingsData, ThemeName } from "../types";
 import { isTauri } from "./ids";
 
 /**
@@ -22,7 +22,13 @@ export async function applyTheme(theme: ThemeName, accent: AccentColor) {
       await win.clearEffects();
     }
   } catch (err) {
-    // window effects unavailable (e.g. dev in plain browser); DOM theme still applies
     console.warn("setEffects failed", err);
   }
+}
+
+/** Root classes for display settings that pure CSS handles. */
+export function applyUiClasses(s: Pick<SettingsData, "reduceTransparency" | "compactMode">) {
+  const root = document.documentElement;
+  root.classList.toggle("reduce-transparency", s.reduceTransparency);
+  root.classList.toggle("compact", s.compactMode);
 }
