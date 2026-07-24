@@ -69,6 +69,18 @@
   --blur: none;
 }
 
+/* Light glass sits on the frost layer below, so panels need enough fill to
+   read as glass rather than disappearing into the background */
+[data-scheme="light"][data-theme="glass"] {
+  --surface: rgba(255, 255, 255, 0.55);
+  --surface-raised: rgba(255, 255, 255, 0.78);
+  --ink: #1d1d1f;
+  --ink-soft: rgba(29, 29, 31, 0.58);
+  --border-color: rgba(255, 255, 255, 0.9);
+  --shadow: 0 8px 32px rgba(31, 38, 135, 0.14);
+  --shadow-sm: 0 2px 10px rgba(31, 38, 135, 0.1);
+}
+
 /* Dark glass: driven by the app's own light/dark setting (data-scheme),
    not the OS, so you can run light glass on a dark Mac and vice versa */
 [data-scheme="dark"][data-theme="glass"] {
@@ -96,12 +108,37 @@
   --border-color: rgba(255, 255, 255, 0.12);
 }
 
+/* Light glass needs a light base: macOS vibrancy stays dark when the system
+   is in dark mode, which would leave dark text on a dark wash. This frost
+   layer keeps it light and readable while the desktop still shimmers through. */
+[data-scheme="light"][data-theme="glass"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.82), rgba(244, 246, 252, 0.88));
+}
+[data-scheme="dark"][data-theme="glass"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: linear-gradient(160deg, rgba(18, 18, 22, 0.5), rgba(26, 24, 34, 0.55));
+}
+
 /* Opaque, maximally readable variant (settings toggle) */
 :root.reduce-transparency[data-scheme="light"][data-theme="glass"] {
-  --surface: rgba(255, 255, 255, 0.85);
-  --surface-raised: rgba(255, 255, 255, 0.95);
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-raised: rgba(255, 255, 255, 0.88);
   --border-color: rgba(0, 0, 0, 0.08);
-  --blur: none;
+}
+:root.reduce-transparency[data-scheme="light"][data-theme="glass"] body::after {
+  background: linear-gradient(160deg, #f2f4f9, #eaedf6);
+}
+:root.reduce-transparency[data-scheme="dark"][data-theme="glass"] body::after {
+  background: linear-gradient(160deg, #1b1c21, #22202a);
 }
 
 html,
