@@ -32,6 +32,40 @@ Verwerkt naar aanleiding van echte-hardware-test:
 Nog open uit deze feedback: **sneltoetsen customizen** (gevraagd; nog niet gebouwd — zie
 verbeterpunten) en een verse handtest van drag/resize/snap na deze fixes.
 
+## Update: feedback-ronde 5 (v0.2.4)
+
+- **Bestanden horen nu bij het blok waar je ze in sleept.** Root cause: `useFileDrop`
+  eiste `isNoteEmpty(block.content)` voordat het een notitie mocht "promoten"; zodra er
+  tekst in stond viel de drop in de else-tak die een compleet nieuw file-organizer-blok
+  aanmaakte (precies de bug uit de screenshot). Opgelost door notities zelf bijlagen te
+  laten dragen: `NoteBlockData.files?: FileOrganizerItem[]`, store-actie
+  `addFilesToBlock` (werkt voor note én file-organizer) + `removeNoteFile`, en de
+  beslissing zit nu in een pure functie `src/lib/dropTarget.ts` (`planDrop`).
+  8 scenario's getest (drop op gevulde notitie, lege notitie, duplicaat, bestandenblok,
+  agenda, leeg canvas) — allemaal groen. Bijlagen renderen onder de tekst, klikbaar naar
+  Finder, en gaan mee in de Markdown-export en het ⌘K-zoeken.
+- **Emoji's weg uit bloktitels**, preset heet nu `Blok 1`, `Blok 2`, … (`nextBlockName`
+  slaat bestaande nummers over).
+- **Canvas pannen met de muis**: houd de middelste knop ingedrukt en sleep. Instelbaar
+  via Instellingen → Canvas (`panButton`: middelste / rechter / uit). Bij "rechter" wordt
+  het canvas-contextmenu uitgeschakeld om conflict te voorkomen.
+- **Liquid glass verder doorgevoerd**: blur 6px → 3px, `.panel::after` staat nu achter het
+  paneel (`z-index:-1`) met eigen tint + drop-shadow, zoals het referentie-CSS-voorbeeld.
+- `main.tsx` exposeert de stores op `window.doova` in DEV (verdwijnt in productiebuild) —
+  handig om state te inspecteren zonder Finder-drag te kunnen simuleren.
+- **Blok-kleur gaf een visuele bug**: de gekleurde balk bovenaan het paneel botste met de
+  titels die nu boven de blokken zweven. Balk verwijderd; kleur zit nu in de rand + een
+  zachte gloed van het blok zelf (en in de titelkleur).
+- **Licht én donker glas als eigen keuze** (`colorScheme: auto | light | dark`). CSS hangt
+  niet meer aan `@media (prefers-color-scheme)` maar aan `data-scheme` op `<html>`;
+  `win.setTheme()` zet ook de macOS-vibrancy in dezelfde tint, dus licht glas werkt óók
+  op een Mac die in dark mode staat. Bij "auto" luistert `watchSystemScheme` mee.
+- **Instelbare sneltoetsen**: `settings.shortcuts` (action → binding als `mod+shift+k`),
+  matcher in `src/lib/shortcuts.ts`, opname-UI in Instellingen → Sneltoetsen (klik, druk
+  toetsen; Esc annuleert, Backspace wist). Een combinatie die al in gebruik is wordt
+  automatisch bij de oude actie weggehaald. Acties: palette, nieuw blok, zijbalk,
+  instellingen, export. Getest: nieuwe binding werkt, oude doet niets meer.
+
 ## Update: feedback-ronde 2
 
 - **Snapping is nu macOS-achtig**: alleen magnetisch bij randen van andere blokken/canvas

@@ -49,6 +49,14 @@ export function CanvasBlock({
           width: block.layout.width,
           height: block.layout.height,
           zIndex: block.layout.z,
+          // block colour tints the glass edge instead of adding a bar that
+          // would collide with the titles floating above neighbouring blocks
+          ...(block.color
+            ? {
+                borderColor: block.color,
+                boxShadow: `var(--shadow), 0 0 0 1px ${block.color}55`,
+              }
+            : null),
         }}
         data-block-id={block.id}
         data-block-type={block.type}

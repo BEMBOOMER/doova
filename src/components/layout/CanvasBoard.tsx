@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Block, BlockGroup } from "../../types";
 import { useProjectsStore } from "../../stores/projectsStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CanvasBlock } from "../blocks/CanvasBlock";
 
@@ -161,6 +162,45 @@ export function CanvasBoard() {
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; canvasX: number; canvasY: number } | null>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
 
+  // hold the configured mouse button to drag the canvas around
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const panButton = useSettingsStore((s) => s.panButton);
+  const panning = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+
+  const startPan = (e: React.PointerEvent) => {
+    if (panButton === 0 || e.button !== panButton) return;
+    const vp = viewportRef.current;
+    if (!vp) return;
+    e.preventDefault();
+    panning.current = { x: e.clientX, y: e.clientY, left: vp.scrollLeft, top: vp.scrollTop };
+    vp.setPointerCapture(e.pointerId);
+    vp.style.cursor = "grabbing";
+  };
+
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const onMove = (e: PointerEvent) => {
+      const start = panning.current;
+      if (!start) return;
+      vp.scrollLeft = start.left - (e.clientX - start.x);
+      vp.scrollTop = start.top - (e.clientY - start.y);
+    };
+    const onUp = () => {
+      if (!panning.current) return;
+      panning.current = null;
+      vp.style.cursor = "";
+    };
+    vp.addEventListener("pointermove", onMove);
+    vp.addEventListener("pointerup", onUp);
+    vp.addEventListener("pointercancel", onUp);
+    return () => {
+      vp.removeEventListener("pointermove", onMove);
+      vp.removeEventListener("pointerup", onUp);
+      vp.removeEventListener("pointercancel", onUp);
+    };
+  }, []);
+
   useEffect(() => {
     if (!ctxMenu) return;
     const onDown = (e: MouseEvent) => {
@@ -197,7 +237,15 @@ export function CanvasBoard() {
 
   return (
     <div className="relative min-h-0 flex-1">
-      <div className="canvas-viewport absolute inset-0 overflow-auto">
+      <div
+        ref={viewportRef}
+        className="canvas-viewport absolute inset-0 overflow-auto"
+        onPointerDown={startPan}
+        onAuxClick={(e) => {
+          // stop the middle-click paste/auto-scroll default while panning
+          if (panButton !== 0 && e.button === panButton) e.preventDefault();
+        }}
+      >
         <div
           id="canvas-inner"
           className="relative"
@@ -209,6 +257,7 @@ export function CanvasBoard() {
           onContextMenu={(e) => {
             if (e.target !== e.currentTarget) return;
             e.preventDefault();
+            if (panButton === 2) return; // right button is bound to panning
             const pt = canvasPoint(e);
             setCtxMenu({ x: e.clientX, y: e.clientY, canvasX: pt.x, canvasY: pt.y });
           }}

@@ -62,6 +62,13 @@ function blockToMarkdown(block: Block): string {
   const lines: string[] = [`## ${block.title}`];
   if (block.type === "note") {
     lines.push(noteToMarkdown(block.content) || "_leeg_");
+    const files = block.files ?? [];
+    if (files.length > 0) {
+      lines.push("", "**Bijlagen**");
+      for (const it of files) {
+        lines.push(`- ${it.missing ? "⚠ " : ""}${it.name} — \`${it.path}\``);
+      }
+    }
   } else if (block.type === "file-organizer") {
     if (block.items.length === 0) lines.push("_leeg_");
     for (const it of block.items) {

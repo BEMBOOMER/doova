@@ -84,6 +84,8 @@ export function CommandPalette() {
         if (block.type === "note" && block.content) haystack += " " + textOf(block.content).toLowerCase();
         if (block.type === "file-organizer")
           haystack += " " + block.items.map((it) => it.name).join(" ").toLowerCase();
+        if (block.type === "note" && block.files?.length)
+          haystack += " " + block.files.map((it) => it.name).join(" ").toLowerCase();
         if (block.type === "calendar")
           haystack += " " + block.events.map((ev) => ev.title).join(" ").toLowerCase();
         if (haystack.includes(q)) {

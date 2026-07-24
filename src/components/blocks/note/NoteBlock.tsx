@@ -5,6 +5,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import type { NoteBlockData } from "../../../types";
 import { useProjectsStore } from "../../../stores/projectsStore";
+import { iconFor, revealInFinder } from "../../../lib/fileSystem";
 
 function ToolbarButton({
   editor,
@@ -35,6 +36,8 @@ function ToolbarButton({
 
 export function NoteBlock({ block }: { block: NoteBlockData }) {
   const setNoteContent = useProjectsStore((s) => s.setNoteContent);
+  const removeNoteFile = useProjectsStore((s) => s.removeNoteFile);
+  const files = block.files ?? [];
 
   const editor = useEditor({
     // keep toolbar active-states in sync with the selection (v3 defaults to false)
@@ -82,6 +85,31 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
           active={editor.isActive("taskList")} />
       </div>
       <EditorContent editor={editor} />
+      {files.length > 0 && (
+        <div className="mt-2 border-t border-border-themed/30 pt-1.5">
+          {files.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => void revealInFinder(item.path)}
+              className="group flex cursor-pointer items-center gap-2 rounded-themed-sm px-1.5 py-1 transition-colors hover:bg-surface-raised"
+              title={`${item.path}\nKlik om te tonen in Finder`}
+            >
+              <span className="shrink-0 text-[14px]">{iconFor(item)}</span>
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{item.name}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeNoteFile(block.id, item.id);
+                }}
+                className="hidden h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] text-ink-soft hover:text-ink group-hover:flex"
+                title="Bijlage verwijderen"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { useSettingsStore } from "./stores/settingsStore";
 import { useUiStore } from "./stores/uiStore";
 import { flushAll } from "./lib/persistence";
 import { isTauri } from "./lib/ids";
+import { isTypingTarget, matches } from "./lib/shortcuts";
+import { runExportFull } from "./lib/exportActions";
 import { startBackupSchedule } from "./lib/backup";
 import { useFileDrop } from "./hooks/useFileDrop";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -25,11 +27,32 @@ export default function App() {
     void useSettingsStore.getState().load();
     void useProjectsStore.getState().load().then(() => startBackupSchedule());
 
-    // Cmd+K opens the palette anywhere
+    // user-configurable shortcuts (Instellingen -> Sneltoetsen)
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      const ui = useUiStore.getState();
+      if (ui.recordingShortcut) return; // the recorder owns the keyboard
+      const { shortcuts } = useSettingsStore.getState();
+      const typing = isTypingTarget(e.target);
+
+      if (matches(shortcuts.palette, e)) {
         e.preventDefault();
-        useUiStore.getState().setPaletteOpen(!useUiStore.getState().paletteOpen);
+        ui.setPaletteOpen(!ui.paletteOpen);
+      } else if (matches(shortcuts.newBlock, e)) {
+        e.preventDefault();
+        ui.setActiveView("canvas");
+        useProjectsStore.getState().addBlock();
+      } else if (matches(shortcuts.toggleSidebar, e)) {
+        e.preventDefault();
+        const s = useSettingsStore.getState();
+        s.update({ sidebarCollapsed: !s.sidebarCollapsed });
+      } else if (matches(shortcuts.settings, e)) {
+        e.preventDefault();
+        ui.setActiveView(ui.activeView === "settings" ? "canvas" : "settings");
+      } else if (matches(shortcuts.exportProject, e) && !typing) {
+        e.preventDefault();
+        const p = useProjectsStore.getState();
+        const tab = p.tabs.find((t) => t.id === p.activeTabId);
+        if (tab) void runExportFull(tab);
       }
     };
     window.addEventListener("keydown", onKey);

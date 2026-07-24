@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { JSONContent } from "@tiptap/react";
 import { useProjectsStore } from "../stores/projectsStore";
 import { useUiStore } from "../stores/uiStore";
 import { makeFileItem, revealInFinder } from "../lib/fileSystem";
+import { planDrop } from "../lib/dropTarget";
 import { isTauri } from "../lib/ids";
 
 /**
- * Tauri's drag-drop event is window-wide, not per element. This hook
- * hit-tests the cursor position against canvas blocks. Universal-block rules:
- * drop on a file-organizer appends; drop on an EMPTY note promotes it to a
- * file-organizer; drop on a filled note or empty canvas creates a new block.
+ * Tauri's drag-drop event is window-wide, not per element, so this hook
+ * hit-tests the cursor against the canvas blocks and hands the decision to
+ * planDrop: whatever block you drop on keeps its content and takes the files.
  */
 /**
  * Geometric hit-test instead of elementsFromPoint: Moveable's overlays and
@@ -27,11 +26,6 @@ function blockAt(x: number, y: number): string | null {
         (Number(getComputedStyle(a.el).zIndex) || 0) - (Number(getComputedStyle(b.el).zIndex) || 0),
     );
   return candidates.length > 0 ? (candidates[candidates.length - 1].el.dataset.blockId ?? null) : null;
-}
-
-function isNoteEmpty(content: JSONContent | null): boolean {
-  if (!content) return true;
-  return !JSON.stringify(content).includes('"text"');
 }
 
 export function useFileDrop() {
@@ -58,22 +52,19 @@ export function useFileDrop() {
         const items = await Promise.all(paths.map((p) => makeFileItem(p)));
         const blockId = blockAt(x, y);
         const block = tab.blocks.find((b) => b.id === blockId);
+        const plan = planDrop(block, items);
 
-        if (block?.type === "file-organizer") {
-          const fresh = items.filter((it) => !block.items.some((ex) => ex.path === it.path));
-          fresh.forEach((it) => store.addFileItem(block.id, it));
-          notify(fresh.length, paths[0]);
-        } else if (block?.type === "note" && isNoteEmpty(block.content)) {
-          store.promoteBlockToFileOrganizer(block.id, items);
-          notify(items.length, paths[0]);
+        if (plan.action === "append") {
+          store.addFilesToBlock(plan.blockId, plan.items);
+          notify(plan.items.length, paths[0]);
         } else {
-          // filled note, calendar, or empty canvas: new file block at the drop point
+          // empty canvas (or a calendar): fresh block at the drop point
           const canvas = document.getElementById("canvas-inner");
           const rect = canvas?.getBoundingClientRect();
           const at = rect ? { x: Math.max(0, x - rect.left), y: Math.max(0, y - rect.top) } : undefined;
           const newId = store.addBlock(at);
-          store.promoteBlockToFileOrganizer(newId, items);
-          notify(items.length, paths[0]);
+          store.promoteBlockToFileOrganizer(newId, plan.items);
+          notify(plan.items.length, paths[0]);
         }
 
         async function notify(added: number, firstPath: string) {

@@ -23,6 +23,10 @@ interface UiState {
   interacting: boolean;
   setInteracting: (v: boolean) => void;
 
+  /** set while the settings screen is capturing a new key binding */
+  recordingShortcut: string | null;
+  setRecordingShortcut: (id: string | null) => void;
+
   toasts: Toast[];
   showToast: (message: string, actionLabel?: string, onAction?: () => void) => void;
   dismissToast: (id: number) => void;
@@ -39,6 +43,9 @@ export const useUiStore = create<UiState>((set) => ({
 
   paletteOpen: false,
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+
+  recordingShortcut: null,
+  setRecordingShortcut: (recordingShortcut) => set({ recordingShortcut }),
 
   interacting: false,
   setInteracting: (interacting) => {

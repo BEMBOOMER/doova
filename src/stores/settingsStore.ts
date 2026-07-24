@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import type { SettingsData } from "../types";
-import { ACCENT_COLORS, DEFAULT_SETTINGS } from "../types";
+import { ACCENT_COLORS, DEFAULT_SETTINGS, DEFAULT_SHORTCUTS } from "../types";
 import { SETTINGS_FILE, loadJson, saveJsonDebounced } from "../lib/persistence";
-import { applyTheme, applyUiClasses } from "../lib/theme";
+import { applyTheme, applyUiClasses, watchSystemScheme } from "../lib/theme";
 
 interface SettingsState extends SettingsData {
   loaded: boolean;
@@ -24,12 +24,21 @@ function sanitize(saved: Partial<SettingsData> | null): SettingsData {
     compactMode: saved?.compactMode ?? DEFAULT_SETTINGS.compactMode,
     reduceTransparency: saved?.reduceTransparency ?? DEFAULT_SETTINGS.reduceTransparency,
     sidebarCollapsed: saved?.sidebarCollapsed ?? DEFAULT_SETTINGS.sidebarCollapsed,
+    colorScheme:
+      saved?.colorScheme === "light" || saved?.colorScheme === "dark" || saved?.colorScheme === "auto"
+        ? saved.colorScheme
+        : DEFAULT_SETTINGS.colorScheme,
+    shortcuts: { ...DEFAULT_SHORTCUTS, ...(saved?.shortcuts ?? {}) },
+    panButton:
+      saved?.panButton === 0 || saved?.panButton === 1 || saved?.panButton === 2
+        ? saved.panButton
+        : DEFAULT_SETTINGS.panButton,
   };
 }
 
 function pickData(s: SettingsState): SettingsData {
-  const { theme, accentColor, snapEnabled, gridSize, compactMode, reduceTransparency, sidebarCollapsed } = s;
-  return { theme, accentColor, snapEnabled, gridSize, compactMode, reduceTransparency, sidebarCollapsed };
+  const { theme, colorScheme, accentColor, snapEnabled, gridSize, compactMode, reduceTransparency, sidebarCollapsed, panButton, shortcuts } = s;
+  return { theme, colorScheme, accentColor, snapEnabled, gridSize, compactMode, reduceTransparency, sidebarCollapsed, panButton, shortcuts };
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -40,15 +49,24 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const result = await loadJson<SettingsData>(SETTINGS_FILE);
     const settings = sanitize(result.status === "ok" ? result.data : null);
     set({ ...settings, loaded: true });
-    void applyTheme(settings.theme, settings.accentColor);
+    void applyTheme(settings.theme, settings.accentColor, settings.colorScheme);
     applyUiClasses(settings);
+    // follow macOS appearance while the setting is on "auto"
+    watchSystemScheme(() => {
+      const s = get();
+      if (s.colorScheme === "auto") void applyTheme(s.theme, s.accentColor, "auto");
+    });
   },
 
   update: (patch) => {
     set(patch);
     const next = pickData(get());
-    if (patch.theme !== undefined || patch.accentColor !== undefined) {
-      void applyTheme(next.theme, next.accentColor);
+    if (
+      patch.theme !== undefined ||
+      patch.accentColor !== undefined ||
+      patch.colorScheme !== undefined
+    ) {
+      void applyTheme(next.theme, next.accentColor, next.colorScheme);
     }
     applyUiClasses(next);
     saveJsonDebounced(SETTINGS_FILE, next);

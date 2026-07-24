@@ -4,7 +4,8 @@ import { appDataDir } from "@tauri-apps/api/path";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useUiStore } from "../../stores/uiStore";
-import { ACCENT_COLORS, type ThemeName } from "../../types";
+import { ACCENT_COLORS, SHORTCUT_ACTIONS, type ThemeName } from "../../types";
+import { bindingFromEvent, formatBinding, isCompleteBinding } from "../../lib/shortcuts";
 import { listBackups, makeBackup, restoreBackup } from "../../lib/backup";
 import { runExportDigest, runExportFull } from "../../lib/exportActions";
 import { isTauri } from "../../lib/ids";
@@ -78,6 +79,53 @@ function ActionButton({ children, onClick, disabled }: { children: React.ReactNo
   );
 }
 
+function ShortcutRow({ action }: { action: (typeof SHORTCUT_ACTIONS)[number] }) {
+  const settings = useSettingsStore();
+  const { recordingShortcut, setRecordingShortcut } = useUiStore();
+  const recording = recordingShortcut === action.id;
+  const binding = settings.shortcuts[action.id] ?? "";
+
+  useEffect(() => {
+    if (!recording) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        setRecordingShortcut(null);
+        return;
+      }
+      if (e.key === "Backspace") {
+        settings.update({ shortcuts: { ...settings.shortcuts, [action.id]: "" } });
+        setRecordingShortcut(null);
+        return;
+      }
+      const next = bindingFromEvent(e);
+      if (!isCompleteBinding(next)) return; // still holding modifiers
+      // free the combination from whatever used it before
+      const cleaned = Object.fromEntries(
+        Object.entries(settings.shortcuts).map(([k, v]) => [k, v === next ? "" : v]),
+      ) as typeof settings.shortcuts;
+      settings.update({ shortcuts: { ...cleaned, [action.id]: next } });
+      setRecordingShortcut(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [recording, action.id, settings, setRecordingShortcut]);
+
+  return (
+    <Row label={action.label} hint={action.hint}>
+      <button
+        onClick={() => setRecordingShortcut(recording ? null : action.id)}
+        className={`heading min-w-[76px] rounded-themed-sm px-2.5 py-1 text-[12px] transition-colors ${
+          recording ? "bg-accent text-accent-ink" : "bg-surface-raised text-ink hover:text-ink"
+        }`}
+      >
+        {recording ? "Druk toetsen…" : formatBinding(binding)}
+      </button>
+    </Row>
+  );
+}
+
 const SHORTCUTS: [string, string][] = [
   ["⌘K", "Command-palette: zoeken door alles en snelle acties"],
   ["Dubbelklik canvas", "Nieuw blok op die plek"],
@@ -88,7 +136,8 @@ const SHORTCUTS: [string, string][] = [
   ["Sleep naam/header", "Blok verplaatsen (snapt bij randen)"],
   ["Sleep rand of hoek", "Blok vergroten of verkleinen (selecteer het blok eerst)"],
   ["Sleep project op project", "Beide in één map zetten"],
-  ["Sleep bestand op blok", "Leeg blok wordt een bestandenblok"],
+  ["Sleep bestand op blok", "Bestand komt als bijlage in dat blok, tekst blijft staan"],
+  ["Middelste muisknop", "Canvas verslepen (instelbaar bij Canvas)"],
   ["- of [] aan regelbegin", "Checklist-item in een notitie"],
 ];
 
@@ -147,6 +196,29 @@ export function SettingsView() {
                   </button>
                 ))}
               </div>
+              {settings.theme === "glass" && (
+                <Row label="Licht of donker" hint="Bepaalt de kleur van het glas en de tekst">
+                  <div className="flex gap-1">
+                    {([
+                      ["light", "Licht"],
+                      ["dark", "Donker"],
+                      ["auto", "Systeem"],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        onClick={() => settings.update({ colorScheme: value })}
+                        className={`rounded-themed-sm px-2.5 py-1 text-[12px] transition-colors ${
+                          settings.colorScheme === value
+                            ? "bg-accent text-accent-ink"
+                            : "bg-surface-raised text-ink-soft hover:text-ink"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </Row>
+              )}
               <Row label="Accentkleur" hint="Gebruikt voor knoppen, actieve items en labels">
                 <div className="flex max-w-[190px] flex-wrap justify-end gap-1.5">
                   {ACCENT_COLORS.map((c) => (
@@ -194,6 +266,30 @@ export function SettingsView() {
                   onChange={(e) => settings.update({ gridSize: Number(e.target.value) })}
                   className="w-32 accent-[var(--color-accent)]"
                 />
+              </Row>
+              <Row
+                label="Canvas verslepen met"
+                hint="Houd deze knop ingedrukt en sleep om over het canvas te navigeren."
+              >
+                <div className="flex gap-1">
+                  {([
+                    [1, "Middelste"],
+                    [2, "Rechter"],
+                    [0, "Uit"],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => settings.update({ panButton: value })}
+                      className={`rounded-themed-sm px-2.5 py-1 text-[12px] transition-colors ${
+                        settings.panButton === value
+                          ? "bg-accent text-accent-ink"
+                          : "bg-surface-raised text-ink-soft hover:text-ink"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </Row>
               <p className="mt-4 rounded-themed-sm bg-surface-raised p-3 text-[12px] leading-relaxed text-ink-soft">
                 Blokken passen zich aan wat je erin doet: typ tekst en het wordt een notitie, sleep
@@ -255,7 +351,17 @@ export function SettingsView() {
 
           {category === "sneltoetsen" && (
             <>
-              <h3 className="heading mb-3 text-[15px]">Sneltoetsen & muisacties</h3>
+              <h3 className="heading mb-1 text-[15px]">Sneltoetsen</h3>
+              <p className="mb-3 text-[12px] text-ink-soft">
+                Klik op een toetscombinatie en druk de nieuwe toetsen in. Esc annuleert,
+                Backspace wist de sneltoets.
+              </p>
+              <div className="mb-6">
+                {SHORTCUT_ACTIONS.map((action) => (
+                  <ShortcutRow key={action.id} action={action} />
+                ))}
+              </div>
+              <h3 className="heading mb-2 text-[15px]">Muisacties</h3>
               <div className="space-y-1.5">
                 {SHORTCUTS.map(([key, desc]) => (
                   <div key={key} className="flex items-baseline gap-2.5 text-[12.5px]">

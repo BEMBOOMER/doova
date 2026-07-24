@@ -70,12 +70,21 @@ function maxZ(blocks: Block[]): number {
   return blocks.reduce((m, b) => Math.max(m, b.layout.z), 0);
 }
 
+/** "Blok 1", "Blok 2", ... skipping numbers already in use */
+function nextBlockName(blocks: Block[]): string {
+  const used = new Set(blocks.map((b) => b.title));
+  for (let n = 1; ; n++) {
+    const name = `Blok ${n}`;
+    if (!used.has(name)) return name;
+  }
+}
+
 function makeBlock(blocks: Block[], at?: { x: number; y: number }): NoteBlockData {
   const pos = at ?? findFreeSlot(blocks);
   return {
     id: newId(),
     type: "note",
-    title: "Nieuw blok",
+    title: nextBlockName(blocks),
     createdAt: nowIso(),
     content: null,
     layout: { ...pos, ...DEFAULT_BLOCK_SIZE, z: maxZ(blocks) + 1 },
@@ -217,6 +226,9 @@ interface ProjectsState {
 
   setNoteContent: (blockId: string, content: JSONContent) => void;
   promoteBlockToFileOrganizer: (blockId: string, items: FileOrganizerItem[]) => void;
+  /** adds files to a note (as attachments) or to a file block (as items) */
+  addFilesToBlock: (blockId: string, items: FileOrganizerItem[]) => void;
+  removeNoteFile: (blockId: string, itemId: string) => void;
 
   addFileItem: (blockId: string, item: FileOrganizerItem) => void;
   removeFileItem: (blockId: string, itemId: string) => void;
@@ -567,7 +579,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         return {
           id: b.id,
           type: "file-organizer",
-          title: b.title === "Nieuw blok" ? "Bestanden" : b.title,
+          title: b.title,
           createdAt: b.createdAt,
           layout: b.layout,
           color: b.color ?? null,
@@ -639,6 +651,34 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         b.type === "calendar"
           ? { ...b, events: b.events.filter((ev) => ev.id !== eventId) }
           : b,
+      ),
+    }));
+    persist(get());
+  },
+
+  addFilesToBlock: (blockId, items) => {
+    if (items.length === 0) return;
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) => {
+        if (b.type === "file-organizer") {
+          const fresh = items.filter((it) => !b.items.some((ex) => ex.path === it.path));
+          return { ...b, items: [...b.items, ...fresh] };
+        }
+        if (b.type === "note") {
+          const current = b.files ?? [];
+          const fresh = items.filter((it) => !current.some((ex) => ex.path === it.path));
+          return { ...b, files: [...current, ...fresh] };
+        }
+        return b;
+      }),
+    }));
+    persist(get());
+  },
+
+  removeNoteFile: (blockId, itemId) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
+        b.type === "note" ? { ...b, files: (b.files ?? []).filter((f) => f.id !== itemId) } : b,
       ),
     }));
     persist(get());

@@ -8,12 +8,6 @@ import { NoteBlock } from "./note/NoteBlock";
 import { FileOrganizerBlock } from "./file-organizer/FileOrganizerBlock";
 import { CalendarBlock } from "./calendar/CalendarBlock";
 
-const TYPE_ICONS: Record<Block["type"], string> = {
-  note: "📝",
-  "file-organizer": "📁",
-  calendar: "📅",
-};
-
 export function BlockContainer({
   block,
   tabId,
@@ -106,7 +100,6 @@ export function BlockContainer({
         }}
         title="Dubbelklik om te hernoemen, sleep om te verplaatsen"
       >
-        <span className="text-[12px] leading-none">{TYPE_ICONS[block.type]}</span>
         {editing ? (
           <input
             ref={inputRef}
@@ -129,12 +122,6 @@ export function BlockContainer({
           </span>
         )}
       </div>
-      {block.color && (
-        <div
-          className="absolute inset-x-0 top-0 h-1 rounded-t-themed"
-          style={{ background: block.color }}
-        />
-      )}
       <div className="block-drag-handle flex shrink-0 cursor-grab items-center justify-end gap-1 px-2 pb-0.5 pt-2 active:cursor-grabbing">
         <button
           ref={menuButtonRef}

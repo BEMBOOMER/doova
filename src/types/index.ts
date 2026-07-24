@@ -2,6 +2,8 @@ import type { JSONContent } from "@tiptap/react";
 
 // ---------- settings ----------
 export type ThemeName = "glass" | "bemboe";
+/** light/dark for the glass theme; "auto" follows macOS */
+export type ColorScheme = "auto" | "light" | "dark";
 export type AccentColor =
   | "yellow"
   | "blue"
@@ -12,24 +14,57 @@ export type AccentColor =
   | "orange"
   | "teal";
 
+export type ShortcutAction =
+  | "palette"
+  | "newBlock"
+  | "toggleSidebar"
+  | "settings"
+  | "exportProject";
+
+export const SHORTCUT_ACTIONS: { id: ShortcutAction; label: string; hint: string }[] = [
+  { id: "palette", label: "Zoeken & acties", hint: "Opent de command-palette" },
+  { id: "newBlock", label: "Nieuw blok", hint: "Voegt een blok toe aan het canvas" },
+  { id: "toggleSidebar", label: "Zijbalk in/uitklappen", hint: "Meer ruimte voor je canvas" },
+  { id: "settings", label: "Instellingen", hint: "Wisselt tussen canvas en instellingen" },
+  { id: "exportProject", label: "Exporteer project", hint: "Markdown van het actieve project" },
+];
+
+export const DEFAULT_SHORTCUTS: Record<ShortcutAction, string> = {
+  palette: "mod+k",
+  newBlock: "mod+n",
+  toggleSidebar: "mod+b",
+  settings: "mod+,",
+  exportProject: "mod+shift+e",
+};
+
 export interface SettingsData {
   theme: ThemeName;
+  colorScheme: ColorScheme;
   accentColor: AccentColor;
   snapEnabled: boolean;
   gridSize: number;
   compactMode: boolean;
   reduceTransparency: boolean;
   sidebarCollapsed: boolean;
+  /** mouse button that pans the canvas: 1 = middle, 2 = right, 0 = off */
+  panButton: 0 | 1 | 2;
+  /** action id -> key binding like "mod+k"; empty string disables it */
+  shortcuts: Record<ShortcutAction, string>;
 }
+
+
 
 export const DEFAULT_SETTINGS: SettingsData = {
   theme: "glass",
+  colorScheme: "auto",
   accentColor: "lightblue",
   snapEnabled: true,
   gridSize: 5,
   compactMode: false,
   reduceTransparency: false,
   sidebarCollapsed: false,
+  panButton: 1,
+  shortcuts: DEFAULT_SHORTCUTS,
 };
 
 export const ACCENT_COLORS: { id: AccentColor; hex: string; label: string }[] = [
@@ -118,6 +153,8 @@ export interface BlockGroup {
 export interface NoteBlockData extends BaseBlock {
   type: "note";
   content: JSONContent | null;
+  /** files dropped onto this note live alongside the text */
+  files?: FileOrganizerItem[];
   /** original v1 checklist data, kept one schema version for rollback */
   _legacyChecklist?: ChecklistItem[];
 }
