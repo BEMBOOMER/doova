@@ -1,8 +1,22 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { exists } from "@tauri-apps/plugin-fs";
 import { stat } from "@tauri-apps/plugin-fs";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { FileOrganizerItem } from "../types";
-import { newId, nowIso } from "./ids";
+import { isTauri, newId, nowIso } from "./ids";
+
+const IMAGE_EXTS = new Set([
+  "png", "jpg", "jpeg", "gif", "webp", "svg", "heic", "heif", "avif", "bmp", "tiff", "tif",
+]);
+
+export function isImage(item: FileOrganizerItem): boolean {
+  return item.kind === "file" && !!item.ext && IMAGE_EXTS.has(item.ext);
+}
+
+/** asset: URL for a local file, or null outside Tauri (dev browser). */
+export function imageSrc(path: string): string | null {
+  return isTauri() ? convertFileSrc(path) : null;
+}
 
 export async function makeFileItem(path: string): Promise<FileOrganizerItem> {
   const name = path.replace(/\/+$/, "").split("/").pop() ?? path;

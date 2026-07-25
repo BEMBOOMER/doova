@@ -36,10 +36,12 @@ export function useFileDrop() {
     const unlisten = getCurrentWebview().onDragDropEvent(async (event) => {
       const { type } = event.payload;
       if (type === "over") {
-        const { x, y } = event.payload.position.toLogical(window.devicePixelRatio);
+        // macOS wry reports drag positions in AppKit points (= CSS pixels)
+        // even though the type says PhysicalPosition — do NOT divide by DPR.
+        const { x, y } = event.payload.position;
         setHoverBlockId(blockAt(x, y));
       } else if (type === "drop") {
-        const { x, y } = event.payload.position.toLogical(window.devicePixelRatio);
+        const { x, y } = event.payload.position;
         setHoverBlockId(null);
         const paths = event.payload.paths;
         if (paths.length === 0) return;

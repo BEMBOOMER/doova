@@ -245,3 +245,19 @@ v0.2 is een complete herbouw van de layout-laag:
 - `src/lib/backup.ts` — auto-backup schema. `src/components/ui/CommandPalette.tsx` — ⌘K.
 - Capabilities: `src-tauri/capabilities/default.json` (fs appdata + exists/stat overal,
   opener reveal overal, dialog, process:allow-exit, window destroy/set-effects).
+
+## v0.3.1 (25 jul 2026) — drop-fix + image previews
+
+- **Root cause file-drop bug**: wry levert op macOS de drag-positie in AppKit points
+  (= CSS-pixels) maar tauri wikkelt dat ongeschaald in een `PhysicalPosition`. De oude
+  code deed `.toLogical(devicePixelRatio)` en halveerde daardoor alle coördinaten op
+  Retina: hit-test miste altijd → geen hover-highlight, drop maakte altijd een nieuw
+  blok. Fix: raw `position.x/y` gebruiken (`useFileDrop.ts`). NIET delen door DPR.
+- **Image previews**: asset-protocol aangezet (`tauri.conf.json` → assetProtocol
+  enable + scope `**`, Cargo feature `protocol-asset`). Nieuw `ui/FileThumb.tsx`:
+  `ImageOrRow` (note-bijlagen als full-width preview, max-h-44, hover-naam + ✕) en
+  `FileThumb` (30px thumbnail in file-organizer rijen). Fallback naar emoji-rij bij
+  decode-fout (HEIC op oudere macOS). `isImage`/`imageSrc` in `lib/fileSystem.ts`.
+- **Debug-lessen**: dev-build en /Applications-versie draaien makkelijk tegelijk met
+  gestapelde vensters op dezelfde data.json; HMR herstart `useEffect([])`-listeners
+  (zoals onDragDropEvent) niet — volledige herstart nodig na listener-wijzigingen.

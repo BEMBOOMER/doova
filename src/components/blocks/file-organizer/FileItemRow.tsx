@@ -1,7 +1,8 @@
 import type { FileOrganizerItem } from "../../../types";
 import { useProjectsStore } from "../../../stores/projectsStore";
 import { useUiStore } from "../../../stores/uiStore";
-import { iconFor, pathExists, revealInFinder } from "../../../lib/fileSystem";
+import { pathExists, revealInFinder } from "../../../lib/fileSystem";
+import { FileThumb } from "../../ui/FileThumb";
 
 export function FileItemRow({
   blockId,
@@ -33,7 +34,7 @@ export function FileItemRow({
       }`}
       title={item.path}
     >
-      <span className="shrink-0 text-[15px]">{item.missing ? "⚠️" : iconFor(item)}</span>
+      <FileThumb item={item} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] leading-tight text-ink">{item.name}</p>
         <p className="truncate text-[10.5px] text-ink-soft">

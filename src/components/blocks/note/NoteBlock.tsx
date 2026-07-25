@@ -9,6 +9,7 @@ import Highlight from "@tiptap/extension-highlight";
 import type { NoteBlockData } from "../../../types";
 import { useProjectsStore } from "../../../stores/projectsStore";
 import { iconFor, revealInFinder } from "../../../lib/fileSystem";
+import { ImageOrRow } from "../../ui/FileThumb";
 
 function ToolbarButton({
   editor,
@@ -172,25 +173,32 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
       {files.length > 0 && (
         <div className="mt-2 border-t border-border-themed/30 pt-1.5">
           {files.map((item) => (
-            <div
+            <ImageOrRow
               key={item.id}
-              onClick={() => void revealInFinder(item.path)}
-              className="group flex cursor-pointer items-center gap-2 rounded-themed-sm px-1.5 py-1 transition-colors hover:bg-surface-raised"
-              title={`${item.path}\nKlik om te tonen in Finder`}
-            >
-              <span className="shrink-0 text-[14px]">{iconFor(item)}</span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{item.name}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeNoteFile(block.id, item.id);
-                }}
-                className="hidden h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] text-ink-soft hover:text-ink group-hover:flex"
-                title="Bijlage verwijderen"
-              >
-                ✕
-              </button>
-            </div>
+              item={item}
+              onOpen={() => void revealInFinder(item.path)}
+              onRemove={() => removeNoteFile(block.id, item.id)}
+              row={
+                <div
+                  onClick={() => void revealInFinder(item.path)}
+                  className="group flex cursor-pointer items-center gap-2 rounded-themed-sm px-1.5 py-1 transition-colors hover:bg-surface-raised"
+                  title={`${item.path}\nKlik om te tonen in Finder`}
+                >
+                  <span className="shrink-0 text-[14px]">{iconFor(item)}</span>
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{item.name}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeNoteFile(block.id, item.id);
+                    }}
+                    className="hidden h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] text-ink-soft hover:text-ink group-hover:flex"
+                    title="Bijlage verwijderen"
+                  >
+                    ✕
+                  </button>
+                </div>
+              }
+            />
           ))}
         </div>
       )}
