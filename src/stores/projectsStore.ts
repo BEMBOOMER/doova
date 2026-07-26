@@ -814,22 +814,35 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   toggleBlockGroup: (groupId) => {
     set((s) => ({
       tabs: withTab(s.tabs, s.activeTabId, (t) => {
+        const group = (t.groups ?? []).find((g) => g.id === groupId);
         const members = t.blocks.filter((b) => b.groupId === groupId);
+        if (!group || members.length === 0) return t;
+        const minX = Math.min(...members.map((b) => b.layout.x));
+        const minY = Math.min(...members.map((b) => b.layout.y));
+        if (!group.collapsed) {
+          // collapse: the chip appears where the group's top-left was
+          return {
+            ...t,
+            groups: (t.groups ?? []).map((g) =>
+              g.id === groupId ? { ...g, collapsed: true, x: minX, y: minY } : g,
+            ),
+          };
+        }
+        // expand at the chip's current spot: if the chip was dragged while
+        // collapsed, the blocks follow it instead of popping back
+        const dx = Math.max(0, group.x) - minX;
+        const dy = Math.max(48, group.y) - minY;
         return {
           ...t,
-          groups: (t.groups ?? []).map((g) => {
-            if (g.id !== groupId) return g;
-            if (!g.collapsed && members.length > 0) {
-              // remember where the chip should appear while collapsed
-              return {
-                ...g,
-                collapsed: true,
-                x: Math.min(...members.map((b) => b.layout.x)),
-                y: Math.min(...members.map((b) => b.layout.y)),
-              };
-            }
-            return { ...g, collapsed: false };
-          }),
+          groups: (t.groups ?? []).map((g) => (g.id === groupId ? { ...g, collapsed: false } : g)),
+          blocks:
+            dx === 0 && dy === 0
+              ? t.blocks
+              : t.blocks.map((b) =>
+                  b.groupId === groupId
+                    ? { ...b, layout: { ...b.layout, x: b.layout.x + dx, y: b.layout.y + dy } }
+                    : b,
+                ),
         };
       }),
     }));

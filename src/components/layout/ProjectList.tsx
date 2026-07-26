@@ -2,18 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragMoveEvent,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { SortableContext, useSortable } from "@dnd-kit/sortable";
 import type { ProjectFolder, ProjectTab } from "../../types";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -42,14 +39,19 @@ function useMenu() {
   return { menuPos, setMenuPos, menuRef, menuButtonRef, openAt };
 }
 
+/** Visual hint while another project is dragged over this row. */
+export type DropHint = "group" | "before" | "after" | null;
+
 function ProjectRow({
   tab,
   isActive,
   inFolder,
+  dropHint = null,
 }: {
   tab: ProjectTab;
   isActive: boolean;
   inFolder: boolean;
+  dropHint?: DropHint;
 }) {
   const { setActiveTab, renameTab, closeTab, restoreTab, groupProjects, moveTabToFolder, tabs } =
     useProjectsStore();
@@ -59,8 +61,10 @@ function ProjectRow({
   const { menuPos, setMenuPos, menuRef, menuButtonRef, openAt } = useMenu();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: tab.id, disabled: editing || inFolder });
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+    id: tab.id,
+    disabled: editing || inFolder,
+  });
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
@@ -83,7 +87,23 @@ function ProjectRow({
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 }}
+      style={{
+        opacity: isDragging ? 0.45 : 1,
+        // rows stay put during a drag; the hint says what a drop will do:
+        // accent ring = group into a folder, edge line = reorder
+        boxShadow:
+          dropHint === "group"
+            ? "0 0 0 2px var(--color-accent)"
+            : dropHint === "before"
+              ? "0 -2px 0 0 var(--color-accent)"
+              : dropHint === "after"
+                ? "0 2px 0 0 var(--color-accent)"
+                : undefined,
+        background:
+          dropHint === "group"
+            ? "color-mix(in srgb, var(--color-accent) 18%, transparent)"
+            : undefined,
+      }}
       {...attributes}
       {...listeners}
       onClick={() => {
@@ -305,31 +325,47 @@ function FolderRow({ folder, children }: { folder: ProjectFolder; children: Reac
   );
 }
 
+/** No-displacement strategy: rows never shift away while dragging. */
+const stayPut = () => null;
+
 export function ProjectList() {
   const { tabs, folders, activeTabId, reorderTabs, groupProjects } = useProjectsStore();
   const showToast = useUiStore((s) => s.showToast);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const [drag, setDrag] = useState<{
+    activeId: string | null;
+    overId: string | null;
+    zone: DropHint;
+  }>({ activeId: null, overId: null, zone: null });
+
+  // on top of a row = group into a folder, near an edge = reorder
+  const zoneFor = (e: DragMoveEvent | DragEndEvent): DropHint => {
+    if (!e.over || e.active.id === e.over.id) return null;
+    const activeRect = e.active.rect.current.translated;
+    if (!activeRect) return null;
+    const overRect = e.over.rect;
+    const diff =
+      activeRect.top + activeRect.height / 2 - (overRect.top + overRect.height / 2);
+    if (Math.abs(diff) < overRect.height * 0.4) return "group";
+    return diff < 0 ? "before" : "after";
+  };
 
   const onDragEnd = (e: DragEndEvent) => {
+    const zone = zoneFor(e);
+    setDrag({ activeId: null, overId: null, zone: null });
     if (!e.over || e.active.id === e.over.id) return;
-    // dropped right on top of another project = group them in a folder;
-    // dropped between rows = plain reorder (macOS-like behavior)
-    const activeRect = e.active.rect.current.translated;
-    const overRect = e.over.rect;
-    const centerDiff = activeRect
-      ? Math.abs(activeRect.top + activeRect.height / 2 - (overRect.top + overRect.height / 2))
-      : Number.POSITIVE_INFINITY;
-    if (centerDiff < overRect.height * 0.35) {
+    if (zone === "group") {
       const a = tabs.find((t) => t.id === e.active.id);
       const b = tabs.find((t) => t.id === e.over!.id);
       groupProjects(String(e.active.id), String(e.over.id));
       if (a && b) showToast(`"${a.name}" en "${b.name}" staan nu in een map`);
-    } else {
+    } else if (zone) {
       reorderTabs(String(e.active.id), String(e.over.id));
     }
   };
 
   const loose = tabs.filter((t) => !t.folderId || !folders.some((f) => f.id === t.folderId));
+  const activeTab = drag.activeId ? tabs.find((t) => t.id === drag.activeId) : null;
 
   return (
     <div className="space-y-0.5">
@@ -342,12 +378,33 @@ export function ProjectList() {
             ))}
         </FolderRow>
       ))}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={loose.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={(e) => setDrag({ activeId: String(e.active.id), overId: null, zone: null })}
+        onDragMove={(e) => {
+          const zone = zoneFor(e);
+          setDrag((d) => ({ ...d, overId: zone && e.over ? String(e.over.id) : null, zone }));
+        }}
+        onDragCancel={() => setDrag({ activeId: null, overId: null, zone: null })}
+        onDragEnd={onDragEnd}
+      >
+        <SortableContext items={loose.map((t) => t.id)} strategy={stayPut}>
           {loose.map((tab) => (
-            <ProjectRow key={tab.id} tab={tab} isActive={tab.id === activeTabId} inFolder={false} />
+            <ProjectRow
+              key={tab.id}
+              tab={tab}
+              isActive={tab.id === activeTabId}
+              inFolder={false}
+              dropHint={drag.overId === tab.id ? drag.zone : null}
+            />
           ))}
         </SortableContext>
+        <DragOverlay dropAnimation={null}>
+          {activeTab ? (
+            <div className="panel heading truncate px-2.5 py-1.5 text-[13px]">{activeTab.name}</div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
     </div>
   );
