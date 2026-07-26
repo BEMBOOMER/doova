@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Doova — je werkblad voor macOS</title>
+<meta name="description" content="Doova is een werkblad voor je Mac. Notities, taken, bestanden en je agenda naast elkaar op een vrij canvas. Gratis, lokaal, zonder account." />
+<link rel="icon" href="assets/icon.png" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Doova — je werkblad voor macOS" />
+<meta property="og:description" content="Notities, taken, bestanden en je agenda naast elkaar op een vrij canvas. Gratis en lokaal." />
+<meta property="og:image" content="assets/poster.jpg" />
+<meta name="theme-color" content="#06080b" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="aurora" aria-hidden="true">
+  <span class="blob b1"></span><span class="blob b2"></span>
+  <span class="blob b3"></span><span class="blob b4"></span>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top">
+    <img src="assets/icon.png" alt="" width="26" height="26" />
+    <span>Doova</span>
+  </a>
+  <nav class="nav-links">
+    <a href="#video">Video</a>
+    <a href="#functies">Functies</a>
+    <a href="https://github.com/BEMBOOMER/doova" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <a class="btn btn-sm" href="#download">Download</a>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <p class="eyebrow reveal" style="--d:0ms">v0.3.3 · macOS 12 of nieuwer · gratis</p>
+    <h1 class="reveal" style="--d:80ms">
+      Alles wat in je hoofd zit,<br />
+      op <span class="grad">één canvas</span>.
+    </h1>
+    <p class="lede reveal" style="--d:160ms">
+      Doova is een werkblad voor je Mac. Notities, taken, bestanden en je agenda
+      staan naast elkaar, precies waar jij ze neerlegt.
+    </p>
+    <div class="cta reveal" style="--d:240ms">
+      <a class="btn btn-primary" href="https://github.com/BEMBOOMER/doova/releases/download/v0.3.3/Doova_0.3.3_universal.dmg">
+        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 17.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Download voor macOS
+      </a>
+      <a class="btn btn-ghost" href="#video">Bekijk de video</a>
+    </div>
+    <p class="fineprint reveal" style="--d:320ms">8,7 MB · universal, werkt op Apple Silicon en Intel</p>
+
+    <div class="stage reveal" style="--d:400ms">
+      <div class="stage-glow" aria-hidden="true"></div>
+      <div class="window">
+        <img src="assets/app-shot.jpg" alt="Doova met een project waarin een briefing, een bestandenlijst en een checklist naast elkaar staan" />
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="video">
+    <div class="section-head reveal">
+      <p class="eyebrow">In actie</p>
+      <h2>Dertig seconden, alles wat het doet.</h2>
+    </div>
+    <figure class="player reveal" id="player">
+      <video id="promo" poster="assets/poster.jpg" preload="metadata" playsinline
+             aria-label="Promovideo van Doova">
+        <source src="assets/doova-promo.mp4" type="video/mp4" />
+      </video>
+      <button class="play" id="playBtn" aria-label="Video afspelen">
+        <span class="play-pill">
+          <span class="play-disc">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M8 5.2v13.6L19.2 12z" fill="currentColor"/></svg>
+          </span>
+          <span class="play-label">Afspelen · 0:30</span>
+        </span>
+      </button>
+    </figure>
+  </section>
+
+  <section class="section" id="functies">
+    <div class="section-head reveal">
+      <p class="eyebrow">Functies</p>
+      <h2>Krachtig, maar nooit vol.</h2>
+      <p class="lede">Elk project is een canvas. Wat je erop zet, bepaal je zelf.</p>
+    </div>
+
+    <div class="bento">
+      <article class="card wide reveal" style="--accent:#58C4F6">
+        <span class="dot"></span>
+        <h3>Een canvas dat niet tegenwerkt</h3>
+        <p>Sleep blokken waar je ze hebben wilt en pas ze aan in formaat. Ze klikken alleen vast als ze echt vlak bij elkaar komen, zoals vensters op je Mac. Verder is alles vrij.</p>
+      </article>
+
+      <article class="card reveal" style="--accent:#A855F7">
+        <span class="dot"></span>
+        <h3>Blokken die snappen wat je bedoelt</h3>
+        <p>Typ en het wordt een notitie. Sleep er een bestand in en het wordt een bestandenblok. Vooraf kiezen hoeft niet.</p>
+      </article>
+
+      <article class="card reveal" style="--accent:#FF4F81">
+        <span class="dot"></span>
+        <h3>Bestanden blijven vindbaar</h3>
+        <p>Sleep een bestand in een blok en het opent meteen in Finder. Afbeeldingen krijgen een echte preview, de rest een gekleurde badge.</p>
+        <div class="badges" aria-hidden="true">
+          <b style="--b:#FF4F81">PDF</b><b style="--b:#A855F7">JPG</b><b style="--b:#58C4F6">SVG</b><b style="--b:#FF6B35">MP4</b>
+        </div>
+      </article>
+
+      <article class="card reveal" style="--accent:#06D6A0">
+        <span class="dot"></span>
+        <h3>Groepen die bij elkaar blijven</h3>
+        <p>Koppel blokken en ze krijgen samen een kader met een naam. Klap de groep in tot één chip en verplaats alles in één beweging.</p>
+      </article>
+
+      <article class="card reveal" style="--accent:#4361EE">
+        <span class="dot"></span>
+        <h3>Agenda erbij</h3>
+        <p>Een maandoverzicht met je eigen afspraken, plus de deadlines die al in je taken staan.</p>
+      </article>
+
+      <article class="card wide reveal" style="--accent:#FFD600">
+        <span class="dot"></span>
+        <h3>Twee thema's, acht accentkleuren</h3>
+        <p>Glas in licht of donker, dat je bureaublad zachtjes laat doorschemeren. Of bemboe, met dikke randen en harde schaduwen. Alles blijft leesbaar, ook met verminderde transparantie.</p>
+        <div class="swatches" aria-hidden="true">
+          <i style="--s:#FFD600"></i><i style="--s:#4361EE"></i><i style="--s:#58C4F6"></i><i style="--s:#A855F7"></i>
+          <i style="--s:#FF4F81"></i><i style="--s:#CCFF00"></i><i style="--s:#FF6B35"></i><i style="--s:#06D6A0"></i>
+        </div>
+      </article>
+
+      <article class="card reveal" style="--accent:#CCFF00">
+        <span class="dot"></span>
+        <h3>Alles op sneltoets</h3>
+        <p>Zoek door al je projecten, voeg een blok toe of exporteer, zonder je muis. Elke sneltoets is aan te passen.</p>
+        <div class="keys" aria-hidden="true"><kbd>⌘</kbd><kbd>K</kbd></div>
+      </article>
+
+      <article class="card reveal" style="--accent:#FF6B35">
+        <span class="dot"></span>
+        <h3>Exporteer voor later</h3>
+        <p>Een project als volledige Markdown, of een korte digest met alleen je open taken en deadlines.</p>
+      </article>
+
+      <article class="card wide reveal" style="--accent:#8E8E93">
+        <span class="dot"></span>
+        <h3>Lokaal en van jou</h3>
+        <p>Alles staat als leesbare JSON op je eigen Mac. Geen account, geen cloud, geen tracking. Automatische backups zitten erin.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="download">
+    <div class="panel download reveal">
+      <p class="eyebrow">Download</p>
+      <h2>Zet het vanavond nog op je Mac.</h2>
+      <p class="lede">Gratis, geen account, geen abonnement.</p>
+      <a class="btn btn-primary btn-lg" href="https://github.com/BEMBOOMER/doova/releases/download/v0.3.3/Doova_0.3.3_universal.dmg">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 17.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Doova 0.3.3 · DMG
+      </a>
+      <ul class="specs">
+        <li><span>Systeem</span>macOS 12 of nieuwer</li>
+        <li><span>Architectuur</span>Universal, Apple Silicon en Intel</li>
+        <li><span>Grootte</span>8,7 MB</li>
+      </ul>
+      <p class="note">
+        Doova is nog niet ondertekend bij Apple. Bij de eerste keer openen:
+        rechtsklik op het app-icoon en kies <b>Open</b>, daarna vraagt macOS het niet meer.
+      </p>
+      <p class="fineprint">
+        <a href="https://github.com/BEMBOOMER/doova/releases" target="_blank" rel="noopener">Alle versies</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://github.com/BEMBOOMER/doova" target="_blank" rel="noopener">Broncode op GitHub</a>
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <p>Doova is gemaakt door Roelof Junior Haar.</p>
+  <p class="fineprint">
+    <a href="https://instagram.com/bemooks" target="_blank" rel="noopener">@bemooks</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://github.com/BEMBOOMER/doova" target="_blank" rel="noopener">GitHub</a>
+  </p>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
