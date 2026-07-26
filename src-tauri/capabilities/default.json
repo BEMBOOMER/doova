@@ -11,6 +11,8 @@
     "core:window:allow-destroy",
     "core:app:allow-app-hide",
     "process:allow-exit",
+    "process:allow-restart",
+    "updater:default",
     "core:event:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",

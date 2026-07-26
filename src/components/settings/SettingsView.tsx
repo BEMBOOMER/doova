@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { appDataDir } from "@tauri-apps/api/path";
+import { getVersion } from "@tauri-apps/api/app";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -8,6 +9,7 @@ import { ACCENT_COLORS, SHORTCUT_ACTIONS, type ThemeName } from "../../types";
 import { bindingFromEvent, formatBinding, isCompleteBinding } from "../../lib/shortcuts";
 import { listBackups, makeBackup, restoreBackup } from "../../lib/backup";
 import { runExportDigest, runExportFull } from "../../lib/exportActions";
+import { checkForUpdate } from "../../lib/updater";
 import { isTauri } from "../../lib/ids";
 
 const THEMES: { id: ThemeName; label: string; hint: string }[] = [
@@ -148,6 +150,11 @@ export function SettingsView() {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const [backups, setBackups] = useState<string[]>([]);
   const [category, setCategory] = useState<CategoryId>("weergave");
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    if (isTauri()) void getVersion().then(setVersion).catch(() => {});
+  }, []);
 
   const refreshBackups = () => void listBackups().then(setBackups);
   useEffect(refreshBackups, []);
@@ -377,13 +384,22 @@ export function SettingsView() {
             <>
               <h3 className="heading mb-3 text-[15px]">Over Doova</h3>
               <p className="mb-2 text-[13px] leading-relaxed text-ink">
-                Doova v0.2 — een werkblad voor je projecten: notities, taken, bestanden en agenda
-                op één vrij canvas.
+                Doova {version ? `v${version}` : ""} · een werkblad voor je projecten: notities,
+                taken, bestanden en agenda op één vrij canvas.
               </p>
-              <p className="mb-4 text-[12.5px] leading-relaxed text-ink-soft">
+              <p className="mb-3 text-[12.5px] leading-relaxed text-ink-soft">
                 Gemaakt door Roelof (bemboe). Gebouwd met Tauri en React. Je data blijft volledig
                 lokaal op je Mac, er gaat niets naar een server.
               </p>
+              <div className="mb-4">
+                <ActionButton onClick={() => void checkForUpdate({ silent: false })}>
+                  ↻ Controleer op updates
+                </ActionButton>
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-ink-soft">
+                  Doova kijkt bij het opstarten zelf of er een nieuwe versie is. Updates worden
+                  ondertekend, alleen releases van Roelof worden geaccepteerd.
+                </p>
+              </div>
               <div className="rounded-themed-sm bg-surface-raised p-3 text-[12px] leading-relaxed text-ink-soft">
                 <p className="mb-1 font-semibold text-ink">Tips</p>
                 <p>Dubbelklik ergens op het canvas voor een nieuw blok op die plek.</p>

@@ -10,6 +10,7 @@ import { isTauri } from "./lib/ids";
 import { isTypingTarget, matches } from "./lib/shortcuts";
 import { runExportFull } from "./lib/exportActions";
 import { startBackupSchedule } from "./lib/backup";
+import { checkForUpdate } from "./lib/updater";
 import { useFileDrop } from "./hooks/useFileDrop";
 import { Sidebar } from "./components/layout/Sidebar";
 import { CanvasBoard } from "./components/layout/CanvasBoard";
@@ -26,6 +27,9 @@ export default function App() {
   useEffect(() => {
     void useSettingsStore.getState().load();
     void useProjectsStore.getState().load().then(() => startBackupSchedule());
+
+    // stil op de achtergrond: alleen een melding als er echt iets nieuws is
+    const updateTimer = setTimeout(() => void checkForUpdate({ silent: true }), 4000);
 
     // user-configurable shortcuts (Instellingen -> Sneltoetsen)
     const onKey = (e: KeyboardEvent) => {
@@ -58,7 +62,11 @@ export default function App() {
     window.addEventListener("keydown", onKey);
 
     // never lose the last few seconds of work on quit
-    if (!isTauri()) return () => window.removeEventListener("keydown", onKey);
+    if (!isTauri())
+      return () => {
+        window.removeEventListener("keydown", onKey);
+        clearTimeout(updateTimer);
+      };
     const win = getCurrentWindow();
     const unlistenClose = win.onCloseRequested(async () => {
       await flushAll();
@@ -73,6 +81,7 @@ export default function App() {
     });
     return () => {
       window.removeEventListener("keydown", onKey);
+      clearTimeout(updateTimer);
       void unlistenClose.then((fn) => fn());
       void unlistenExit.then((fn) => fn());
     };
