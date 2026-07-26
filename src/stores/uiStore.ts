@@ -5,6 +5,8 @@ export interface Toast {
   message: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** blijft staan tot je hem wegklikt, voor meldingen die je niet mag missen */
+  persist?: boolean;
 }
 
 export type ActiveView = "canvas" | "settings";
@@ -28,7 +30,12 @@ interface UiState {
   setRecordingShortcut: (id: string | null) => void;
 
   toasts: Toast[];
-  showToast: (message: string, actionLabel?: string, onAction?: () => void) => void;
+  showToast: (
+    message: string,
+    actionLabel?: string,
+    onAction?: () => void,
+    opts?: { persist?: boolean },
+  ) => void;
   dismissToast: (id: number) => void;
 }
 
@@ -54,9 +61,11 @@ export const useUiStore = create<UiState>((set) => ({
   },
 
   toasts: [],
-  showToast: (message, actionLabel, onAction) => {
+  showToast: (message, actionLabel, onAction, opts) => {
     const id = ++toastSeq;
-    set((s) => ({ toasts: [...s.toasts, { id, message, actionLabel, onAction }] }));
+    const persist = opts?.persist ?? false;
+    set((s) => ({ toasts: [...s.toasts, { id, message, actionLabel, onAction, persist }] }));
+    if (persist) return;
     setTimeout(() => {
       set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
     }, 5000);

@@ -22,9 +22,13 @@ export async function checkForUpdate({ silent }: { silent: boolean }): Promise<v
       if (!silent) showToast("Je hebt de nieuwste versie");
       return;
     }
-    showToast(`Doova ${update.version} is beschikbaar`, "Installeren", () => {
-      void install(update);
-    });
+    // blijft staan: een update die na vijf tellen weer weg is, mis je gewoon
+    showToast(
+      `Doova ${update.version} is beschikbaar`,
+      "Installeren",
+      () => void install(update),
+      { persist: true },
+    );
   } catch (err) {
     console.error("update check failed", err);
     // bij het opstarten is een mislukte check (geen internet) geen nieuws

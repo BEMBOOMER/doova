@@ -21,6 +21,15 @@ export function Toasts() {
               {toast.actionLabel}
             </button>
           )}
+          {toast.persist && (
+            <button
+              onClick={() => dismissToast(toast.id)}
+              className="-mr-1 flex h-5 w-5 items-center justify-center rounded text-[11px] text-ink-soft hover:text-ink"
+              title="Melding sluiten"
+            >
+              ✕
+            </button>
+          )}
         </div>
       ))}
     </div>
