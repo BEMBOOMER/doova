@@ -273,6 +273,21 @@ function withTab(
   return tabs.map((t) => (t.id === tabId ? fn(t) : t));
 }
 
+/** Drops groups that no longer have at least two members and unlinks their blocks. */
+function pruneGroups(t: ProjectTab): ProjectTab {
+  const groups = (t.groups ?? []).filter(
+    (g) => t.blocks.filter((b) => b.groupId === g.id).length >= 2,
+  );
+  if ((t.groups ?? []).length === groups.length) return t;
+  return {
+    ...t,
+    groups,
+    blocks: t.blocks.map((b) =>
+      b.groupId && !groups.some((g) => g.id === b.groupId) ? { ...b, groupId: null } : b,
+    ),
+  };
+}
+
 /** Gap between blocks laid out by "netjes ordenen" inside a group. */
 const GROUP_GAP = 18;
 /** Rows wrap once they get wider than this (unless a single block is wider). */
@@ -493,20 +508,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
 
   removeBlock: (blockId) => {
     set((s) => ({
-      tabs: withTab(s.tabs, s.activeTabId, (t) => {
-        const blocks = t.blocks.filter((b) => b.id !== blockId);
-        // drop groups that no longer have at least two members
-        const groups = (t.groups ?? []).filter(
-          (g) => blocks.filter((b) => b.groupId === g.id).length >= 2,
-        );
-        return {
-          ...t,
-          blocks: blocks.map((b) =>
-            b.groupId && !groups.some((g) => g.id === b.groupId) ? { ...b, groupId: null } : b,
-          ),
-          groups,
-        };
-      }),
+      tabs: withTab(s.tabs, s.activeTabId, (t) =>
+        pruneGroups({ ...t, blocks: t.blocks.filter((b) => b.id !== blockId) }),
+      ),
     }));
     persist(get());
   },
@@ -518,7 +522,16 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         : (s.activeTabId ?? s.tabs[0]?.id ?? null);
       if (!target) return s;
       return {
-        tabs: withTab(s.tabs, target, (t) => ({ ...t, blocks: [...t.blocks, block] })),
+        tabs: withTab(s.tabs, target, (t) => ({
+          ...t,
+          blocks: [
+            ...t.blocks,
+            // the block's group may have been pruned while it was removed
+            block.groupId && !(t.groups ?? []).some((g) => g.id === block.groupId)
+              ? { ...block, groupId: null }
+              : block,
+          ],
+        })),
       };
     });
     persist(get());
@@ -736,12 +749,18 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         const groups = t.groups ?? [];
         const existing = b.groupId ? groups.find((g) => g.id === b.groupId) : null;
         if (existing) {
-          return arrangeGroupInTab(
-            {
-              ...t,
-              blocks: t.blocks.map((bl) => (bl.id === aId ? { ...bl, groupId: existing.id } : bl)),
-            },
-            existing.id,
+          // pruneGroups: if a came out of another group, that group may have
+          // dropped below two members and must not linger as an empty frame
+          return pruneGroups(
+            arrangeGroupInTab(
+              {
+                ...t,
+                blocks: t.blocks.map((bl) =>
+                  bl.id === aId ? { ...bl, groupId: existing.id } : bl,
+                ),
+              },
+              existing.id,
+            ),
           );
         }
         const group: BlockGroup = {
@@ -751,15 +770,17 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
           x: Math.min(a.layout.x, b.layout.x),
           y: Math.min(a.layout.y, b.layout.y),
         };
-        return arrangeGroupInTab(
-          {
-            ...t,
-            groups: [...groups, group],
-            blocks: t.blocks.map((bl) =>
-              bl.id === aId || bl.id === bId ? { ...bl, groupId: group.id } : bl,
-            ),
-          },
-          group.id,
+        return pruneGroups(
+          arrangeGroupInTab(
+            {
+              ...t,
+              groups: [...groups, group],
+              blocks: t.blocks.map((bl) =>
+                bl.id === aId || bl.id === bId ? { ...bl, groupId: group.id } : bl,
+              ),
+            },
+            group.id,
+          ),
         );
       }),
     }));
