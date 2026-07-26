@@ -241,6 +241,12 @@ interface ProjectsState {
   /** puts both blocks in a collapsible canvas group */
   groupBlocks: (aId: string, bId: string) => void;
   toggleBlockGroup: (groupId: string) => void;
+  /** drags the whole group: offsets every member (and the chip position) */
+  moveBlockGroup: (groupId: string, dx: number, dy: number) => void;
+  /** moves the collapsed chip without touching the members */
+  setGroupPosition: (groupId: string, x: number, y: number) => void;
+  /** lays the members out in tidy rows, like the reference design */
+  arrangeBlockGroup: (groupId: string) => void;
   renameBlockGroup: (groupId: string, name: string) => void;
   dissolveBlockGroup: (groupId: string) => void;
   removeBlockFromGroup: (blockId: string) => void;
@@ -265,6 +271,42 @@ function withTab(
   fn: (tab: ProjectTab) => ProjectTab,
 ): ProjectTab[] {
   return tabs.map((t) => (t.id === tabId ? fn(t) : t));
+}
+
+/** Gap between blocks laid out by "netjes ordenen" inside a group. */
+const GROUP_GAP = 18;
+/** Rows wrap once they get wider than this (unless a single block is wider). */
+const GROUP_ROW_WIDTH = 940;
+
+/** Lays a group's members out in tidy top-aligned rows from their top-left corner. */
+function arrangeGroupInTab(t: ProjectTab, groupId: string): ProjectTab {
+  const members = t.blocks
+    .filter((b) => b.groupId === groupId)
+    .sort((a, b) => a.layout.y - b.layout.y || a.layout.x - b.layout.x);
+  if (members.length < 2) return t;
+  const originX = Math.max(24, Math.min(...members.map((b) => b.layout.x)));
+  const originY = Math.max(48, Math.min(...members.map((b) => b.layout.y)));
+  const pos = new Map<string, { x: number; y: number }>();
+  let x = originX;
+  let y = originY;
+  let rowH = 0;
+  for (const m of members) {
+    if (x > originX && x + m.layout.width > originX + GROUP_ROW_WIDTH) {
+      x = originX;
+      y += rowH + GROUP_GAP;
+      rowH = 0;
+    }
+    pos.set(m.id, { x, y });
+    x += m.layout.width + GROUP_GAP;
+    rowH = Math.max(rowH, m.layout.height);
+  }
+  return {
+    ...t,
+    blocks: t.blocks.map((b) => {
+      const p = pos.get(b.id);
+      return p ? { ...b, layout: { ...b.layout, x: p.x, y: p.y } } : b;
+    }),
+  };
 }
 
 function withBlock(
@@ -694,10 +736,13 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         const groups = t.groups ?? [];
         const existing = b.groupId ? groups.find((g) => g.id === b.groupId) : null;
         if (existing) {
-          return {
-            ...t,
-            blocks: t.blocks.map((bl) => (bl.id === aId ? { ...bl, groupId: existing.id } : bl)),
-          };
+          return arrangeGroupInTab(
+            {
+              ...t,
+              blocks: t.blocks.map((bl) => (bl.id === aId ? { ...bl, groupId: existing.id } : bl)),
+            },
+            existing.id,
+          );
         }
         const group: BlockGroup = {
           id: newId(),
@@ -706,14 +751,62 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
           x: Math.min(a.layout.x, b.layout.x),
           y: Math.min(a.layout.y, b.layout.y),
         };
+        return arrangeGroupInTab(
+          {
+            ...t,
+            groups: [...groups, group],
+            blocks: t.blocks.map((bl) =>
+              bl.id === aId || bl.id === bId ? { ...bl, groupId: group.id } : bl,
+            ),
+          },
+          group.id,
+        );
+      }),
+    }));
+    persist(get());
+  },
+
+  moveBlockGroup: (groupId, dx, dy) => {
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => {
+        const members = t.blocks.filter((b) => b.groupId === groupId);
+        if (members.length === 0) return t;
+        // keep the whole group on-canvas: clamp the shared offset, not per block
+        const minX = Math.min(...members.map((b) => b.layout.x));
+        const minY = Math.min(...members.map((b) => b.layout.y));
+        const fx = Math.max(dx, -minX);
+        const fy = Math.max(dy, 48 - minY);
         return {
           ...t,
-          groups: [...groups, group],
-          blocks: t.blocks.map((bl) =>
-            bl.id === aId || bl.id === bId ? { ...bl, groupId: group.id } : bl,
+          groups: (t.groups ?? []).map((g) =>
+            g.id === groupId ? { ...g, x: g.x + fx, y: g.y + fy } : g,
+          ),
+          blocks: t.blocks.map((b) =>
+            b.groupId === groupId
+              ? { ...b, layout: { ...b.layout, x: b.layout.x + fx, y: b.layout.y + fy } }
+              : b,
           ),
         };
       }),
+    }));
+    persist(get());
+  },
+
+  setGroupPosition: (groupId, x, y) => {
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => ({
+        ...t,
+        groups: (t.groups ?? []).map((g) =>
+          g.id === groupId ? { ...g, x: Math.max(0, x), y: Math.max(0, y) } : g,
+        ),
+      })),
+    }));
+    persist(get());
+  },
+
+  arrangeBlockGroup: (groupId) => {
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => arrangeGroupInTab(t, groupId)),
     }));
     persist(get());
   },

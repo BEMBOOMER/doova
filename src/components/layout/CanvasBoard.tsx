@@ -6,14 +6,79 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CanvasBlock } from "../blocks/CanvasBlock";
 
-/** Pill above an expanded group, and chip that replaces a collapsed one. */
+/**
+ * Highlighted frame around an expanded group with a pill on top, or a chip
+ * that replaces a collapsed one. Dragging the pill/chip moves the whole group.
+ */
 function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] }) {
-  const { toggleBlockGroup, renameBlockGroup, dissolveBlockGroup } = useProjectsStore();
+  const {
+    toggleBlockGroup,
+    renameBlockGroup,
+    dissolveBlockGroup,
+    moveBlockGroup,
+    setGroupPosition,
+    arrangeBlockGroup,
+  } = useProjectsStore();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(group.name);
   const inputRef = useRef<HTMLInputElement>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // drag the whole group by its pill/chip: members move live via the DOM,
+  // the store is committed once on release (no persist storm)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    moved: boolean;
+    els: { el: HTMLElement; left: number; top: number }[];
+  } | null>(null);
+
+  const startDrag = (e: React.PointerEvent) => {
+    if (e.button !== 0 || editing) return;
+    e.stopPropagation();
+    const els = group.collapsed
+      ? []
+      : members.flatMap((m) => {
+          const el = document.querySelector<HTMLElement>(`[data-block-id="${m.id}"]`);
+          return el ? [{ el, left: m.layout.x, top: m.layout.y }] : [];
+        });
+    dragRef.current = { startX: e.clientX, startY: e.clientY, moved: false, els };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onDragMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.hypot(dx, dy) < 4) return;
+    d.moved = true;
+    setDragOffset({ x: dx, y: dy });
+    for (const { el, left, top } of d.els) {
+      el.style.left = `${Math.max(0, left + dx)}px`;
+      el.style.top = `${Math.max(0, top + dy)}px`;
+    }
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    dragRef.current = null;
+    setDragOffset({ x: 0, y: 0 });
+    if (!d.moved) {
+      toggleBlockGroup(group.id);
+      return;
+    }
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (group.collapsed) {
+      setGroupPosition(group.id, group.x + dx, group.y + dy);
+    } else {
+      moveBlockGroup(group.id, dx, dy);
+    }
+  };
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
@@ -57,6 +122,10 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
         ref={menuRef}
         className="panel pop-in fixed z-[80] p-1.5"
         style={{ left: menuPos.x, top: menuPos.y, width: 190 }}
+        // the portal is a React child of the pill, so without this, clicks on
+        // menu items bubble into the pill's drag/toggle handlers
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
       >
         <button
           onClick={() => {
@@ -67,6 +136,15 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
           className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
         >
           ✎ Hernoemen
+        </button>
+        <button
+          onClick={() => {
+            arrangeBlockGroup(group.id);
+            setMenuPos(null);
+          }}
+          className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+        >
+          ⇆ Netjes ordenen
         </button>
         <button
           onClick={() => {
@@ -81,22 +159,34 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
       document.body,
     );
 
+  const sharedPillHandlers = {
+    onPointerDown: startDrag,
+    onPointerMove: onDragMove,
+    onPointerUp: endDrag,
+    onDoubleClick: (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setDraft(group.name);
+      setEditing(true);
+    },
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setMenuPos({ x: e.clientX, y: e.clientY });
+    },
+  };
+
   if (group.collapsed) {
     return (
       <div
-        className="panel pop-in absolute flex cursor-pointer items-center gap-2 px-3 py-2.5"
-        style={{ left: group.x, top: group.y, width: 230, zIndex: 500 }}
-        onClick={() => toggleBlockGroup(group.id)}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          setDraft(group.name);
-          setEditing(true);
+        className="panel pop-in absolute flex cursor-grab select-none items-center gap-2 px-3 py-2.5 active:cursor-grabbing"
+        style={{
+          left: group.x + dragOffset.x,
+          top: group.y + dragOffset.y,
+          width: 230,
+          zIndex: 500,
         }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setMenuPos({ x: e.clientX, y: e.clientY });
-        }}
-        title="Klik om uit te klappen"
+        {...sharedPillHandlers}
+        title="Klik om uit te klappen, sleep om te verplaatsen"
       >
         <span className="text-[13px]">🗂</span>
         <span className="min-w-0 flex-1">{name}</span>
@@ -106,30 +196,41 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
     );
   }
 
-  const minX = Math.min(...members.map((b) => b.layout.x));
-  const minY = Math.min(...members.map((b) => b.layout.y));
+  // frame hugs the members' bounding box, like the reference design
+  const PAD = 16;
+  const minX = Math.min(...members.map((b) => b.layout.x)) - PAD;
+  const minY = Math.min(...members.map((b) => b.layout.y)) - PAD;
+  const maxX = Math.max(...members.map((b) => b.layout.x + b.layout.width)) + PAD;
+  const maxY = Math.max(...members.map((b) => b.layout.y + b.layout.height)) + PAD;
 
   return (
-    <div
-      className="panel absolute flex cursor-pointer items-center gap-1.5 px-2.5 py-1"
-      style={{ left: minX, top: Math.max(0, minY - 34), zIndex: 500 }}
-      onClick={() => toggleBlockGroup(group.id)}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        setDraft(group.name);
-        setEditing(true);
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setMenuPos({ x: e.clientX, y: e.clientY });
-      }}
-      title="Klik om in te klappen"
-    >
-      <span className="text-[10px]">▾</span>
-      {name}
-      <span className="text-[10.5px] text-ink-soft">{members.length}</span>
-      {menu}
-    </div>
+    <>
+      <div
+        className="group-frame absolute"
+        style={{
+          left: minX + dragOffset.x,
+          top: minY + dragOffset.y,
+          width: maxX - minX,
+          height: maxY - minY,
+          zIndex: 0,
+        }}
+      />
+      <div
+        className="panel absolute flex -translate-x-1/2 cursor-grab select-none items-center gap-1.5 rounded-full px-3.5 py-1.5 active:cursor-grabbing"
+        style={{
+          left: (minX + maxX) / 2 + dragOffset.x,
+          top: minY - 16 + dragOffset.y,
+          zIndex: 600,
+        }}
+        {...sharedPillHandlers}
+        title="Klik om in te klappen, sleep om de groep te verplaatsen"
+      >
+        <span className="text-[10px]">▾</span>
+        {name}
+        <span className="text-[10.5px] text-ink-soft">{members.length}</span>
+        {menu}
+      </div>
+    </>
   );
 }
 

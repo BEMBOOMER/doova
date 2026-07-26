@@ -239,11 +239,32 @@ body.is-interacting [data-theme="glass"] .panel,
 /* Canvas blocks: shadow must never be clipped, so only the body scrolls */
 .canvas-block {
   overflow: visible;
-  animation: pop-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-  transition: box-shadow 0.15s ease;
+  animation: bubble-in 0.34s cubic-bezier(0.34, 1.45, 0.5, 1);
+  transition: box-shadow 0.18s ease;
 }
 body:not(.is-interacting) .canvas-block:hover {
   box-shadow: var(--shadow), 0 4px 18px rgba(0, 0, 0, 0.1);
+}
+
+/* Group frame: glowing accent outline hugging the grouped blocks */
+.group-frame {
+  pointer-events: none;
+  border-radius: 28px;
+  border: 1.5px solid color-mix(in srgb, var(--color-accent) 60%, rgba(255, 255, 255, 0.5));
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  box-shadow:
+    0 0 26px color-mix(in srgb, var(--color-accent) 22%, transparent),
+    inset 0 0 34px color-mix(in srgb, var(--color-accent) 7%, transparent);
+  animation: frame-in 0.3s cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+@keyframes frame-in {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* File-type chips get a tiny glass highlight so they sit in the theme */
+.file-badge {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 aside { transition: width 0.22s cubic-bezier(0.3, 0.8, 0.3, 1); }
 .canvas-block > .block-body {
@@ -336,15 +357,31 @@ aside { transition: width 0.22s cubic-bezier(0.3, 0.8, 0.3, 1); }
   height: 0;
 }
 
-/* Animations, snappy per user preference */
+/* Animations: springy Apple-like bubbles, snappy per user preference */
 @keyframes pop-in {
-  from { opacity: 0; transform: scale(0.96) translateY(4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  0% { opacity: 0; transform: scale(0.92) translateY(5px); }
+  65% { opacity: 1; transform: scale(1.015) translateY(-1px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
-.pop-in { animation: pop-in 0.18s ease-out; }
+.pop-in { animation: pop-in 0.26s cubic-bezier(0.34, 1.35, 0.5, 1); }
+
+@keyframes bubble-in {
+  0% { opacity: 0; transform: scale(0.82) translateY(10px); }
+  60% { opacity: 1; transform: scale(1.02) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  0% { opacity: 0; transform: translateY(16px) scale(0.94); }
+  60% { opacity: 1; transform: translateY(-2px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-.toast-in { animation: toast-in 0.2s ease-out; }
+.toast-in { animation: toast-in 0.3s cubic-bezier(0.34, 1.3, 0.5, 1); }
+
+/* Buttons press in like iOS: quick scale with a soft spring back */
+button {
+  transition: transform 0.16s cubic-bezier(0.3, 0.9, 0.4, 1.15);
+}
+button:active {
+  transform: scale(0.94);
+}

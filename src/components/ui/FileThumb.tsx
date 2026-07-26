@@ -1,18 +1,68 @@
 import { useState, type ReactNode } from "react";
 import type { FileOrganizerItem } from "../../types";
-import { iconFor, imageSrc, isImage } from "../../lib/fileSystem";
+import { imageSrc, isImage } from "../../lib/fileSystem";
+
+/** Colored file-type chip like the promo video: pink PDF, purple JPG, blue SVG… */
+const BADGE_COLORS: Record<string, { bg: string; fg?: string }> = {
+  pdf: { bg: "#FF4F81" },
+  png: { bg: "#A855F7" }, jpg: { bg: "#A855F7" }, jpeg: { bg: "#A855F7" },
+  gif: { bg: "#A855F7" }, webp: { bg: "#A855F7" }, heic: { bg: "#A855F7" },
+  heif: { bg: "#A855F7" }, avif: { bg: "#A855F7" }, bmp: { bg: "#A855F7" },
+  tiff: { bg: "#A855F7" }, tif: { bg: "#A855F7" },
+  svg: { bg: "#58C4F6", fg: "#123" },
+  mp4: { bg: "#FF6B35" }, mov: { bg: "#FF6B35" }, avi: { bg: "#FF6B35" },
+  mkv: { bg: "#FF6B35" }, webm: { bg: "#FF6B35" },
+  mp3: { bg: "#FFD600", fg: "#1a1a1a" }, wav: { bg: "#FFD600", fg: "#1a1a1a" },
+  aiff: { bg: "#FFD600", fg: "#1a1a1a" }, flac: { bg: "#FFD600", fg: "#1a1a1a" },
+  m4a: { bg: "#FFD600", fg: "#1a1a1a" },
+  doc: { bg: "#4361EE" }, docx: { bg: "#4361EE" }, txt: { bg: "#4361EE" },
+  md: { bg: "#4361EE" }, rtf: { bg: "#4361EE" }, pages: { bg: "#4361EE" },
+  xls: { bg: "#06D6A0", fg: "#123" }, xlsx: { bg: "#06D6A0", fg: "#123" },
+  csv: { bg: "#06D6A0", fg: "#123" }, numbers: { bg: "#06D6A0", fg: "#123" },
+  ppt: { bg: "#FF6B35" }, pptx: { bg: "#FF6B35" }, key: { bg: "#FF6B35" },
+  zip: { bg: "#8E8E93" }, rar: { bg: "#8E8E93" }, "7z": { bg: "#8E8E93" }, dmg: { bg: "#8E8E93" },
+  psd: { bg: "#EC4899" }, ai: { bg: "#EC4899" }, fig: { bg: "#EC4899" },
+  sketch: { bg: "#EC4899" }, afdesign: { bg: "#EC4899" },
+  drp: { bg: "#EC4899" }, prproj: { bg: "#EC4899" }, aep: { bg: "#EC4899" },
+};
+
+/** Rounded colored chip with the uppercase extension, folder chip for folders. */
+export function FileBadge({ item, size = 28 }: { item: FileOrganizerItem; size?: number }) {
+  if (item.missing) {
+    return (
+      <span
+        style={{ width: size, height: size }}
+        className="flex shrink-0 items-center justify-center rounded-[8px] bg-black/20 text-[13px]"
+      >
+        ⚠️
+      </span>
+    );
+  }
+  const isFolder = item.kind === "folder";
+  const ext = item.ext ?? "";
+  const color = isFolder ? { bg: "#4361EE" } : (BADGE_COLORS[ext] ?? { bg: "#64748B" });
+  const label = isFolder ? "MAP" : (ext || "?").toUpperCase().slice(0, 4);
+  return (
+    <span
+      style={{ width: size, height: size, background: color.bg, color: color.fg ?? "#fff" }}
+      className="file-badge flex shrink-0 items-center justify-center rounded-[8px] text-[8.5px] font-bold tracking-tight"
+    >
+      {label}
+    </span>
+  );
+}
 
 /**
  * Small square thumbnail for a file row: real image preview when the item is
- * an image the webview can decode, emoji icon otherwise (or when loading fails,
- * e.g. HEIC on older macOS).
+ * an image the webview can decode, colored type chip otherwise (or when
+ * loading fails, e.g. HEIC on older macOS).
  */
 export function FileThumb({ item, size = 30 }: { item: FileOrganizerItem; size?: number }) {
   const [failed, setFailed] = useState(false);
   const src = !failed && !item.missing && isImage(item) ? imageSrc(item.path) : null;
 
   if (!src) {
-    return <span className="shrink-0 text-[15px]">{item.missing ? "⚠️" : iconFor(item)}</span>;
+    return <FileBadge item={item} size={size} />;
   }
   return (
     <img

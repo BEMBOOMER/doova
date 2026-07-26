@@ -8,8 +8,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Highlight from "@tiptap/extension-highlight";
 import type { NoteBlockData } from "../../../types";
 import { useProjectsStore } from "../../../stores/projectsStore";
-import { iconFor, revealInFinder } from "../../../lib/fileSystem";
-import { ImageOrRow } from "../../ui/FileThumb";
+import { revealInFinder } from "../../../lib/fileSystem";
+import { FileBadge, ImageOrRow } from "../../ui/FileThumb";
 
 function ToolbarButton({
   editor,
@@ -181,11 +181,18 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
               row={
                 <div
                   onClick={() => void revealInFinder(item.path)}
-                  className="group flex cursor-pointer items-center gap-2 rounded-themed-sm px-1.5 py-1 transition-colors hover:bg-surface-raised"
+                  className="group pop-in flex cursor-pointer items-center gap-2.5 rounded-themed-sm px-1.5 py-1.5 transition-colors hover:bg-surface-raised"
                   title={`${item.path}\nKlik om te tonen in Finder`}
                 >
-                  <span className="shrink-0 text-[14px]">{iconFor(item)}</span>
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{item.name}</span>
+                  <FileBadge item={item} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold leading-tight text-ink">
+                      {item.name}
+                    </span>
+                    <span className="block truncate text-[10.5px] leading-tight text-ink-soft">
+                      {item.path.replace(/^\/Users\/[^/]+/, "~").split("/").slice(0, -1).join("/")}
+                    </span>
+                  </span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
