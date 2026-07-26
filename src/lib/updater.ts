@@ -11,9 +11,29 @@ import { isTauri } from "./ids";
  * latest.json van de nieuwste GitHub-release.
  */
 let busy = false;
+/** true zodra een update is gevonden: dan hoeft er niet meer gekeken te worden */
+let found = false;
+
+/**
+ * Achtergrondritme: kort na het opstarten, nog een keer als dat mislukte
+ * (laptop nog offline, wifi nog niet terug), en daarna elke zes uur voor wie
+ * de app dagenlang open laat staan.
+ */
+export function startUpdateWatch(): () => void {
+  if (!isTauri()) return () => {};
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  timers.push(setTimeout(() => void checkForUpdate({ silent: true }), 4000));
+  timers.push(setTimeout(() => void checkForUpdate({ silent: true }), 60_000));
+  const interval = setInterval(() => void checkForUpdate({ silent: true }), 6 * 60 * 60 * 1000);
+  return () => {
+    timers.forEach(clearTimeout);
+    clearInterval(interval);
+  };
+}
 
 export async function checkForUpdate({ silent }: { silent: boolean }): Promise<void> {
   if (!isTauri() || busy) return;
+  if (found && silent) return; // de melding staat al op het scherm
   const { showToast } = useUiStore.getState();
   busy = true;
   try {
@@ -22,6 +42,7 @@ export async function checkForUpdate({ silent }: { silent: boolean }): Promise<v
       if (!silent) showToast("Je hebt de nieuwste versie");
       return;
     }
+    found = true;
     // blijft staan: een update die na vijf tellen weer weg is, mis je gewoon
     showToast(
       `Doova ${update.version} is beschikbaar`,

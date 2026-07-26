@@ -10,7 +10,7 @@ import { isTauri } from "./lib/ids";
 import { isTypingTarget, matches } from "./lib/shortcuts";
 import { runExportFull } from "./lib/exportActions";
 import { startBackupSchedule } from "./lib/backup";
-import { checkForUpdate } from "./lib/updater";
+import { startUpdateWatch } from "./lib/updater";
 import { useFileDrop } from "./hooks/useFileDrop";
 import { Sidebar } from "./components/layout/Sidebar";
 import { CanvasBoard } from "./components/layout/CanvasBoard";
@@ -29,7 +29,7 @@ export default function App() {
     void useProjectsStore.getState().load().then(() => startBackupSchedule());
 
     // stil op de achtergrond: alleen een melding als er echt iets nieuws is
-    const updateTimer = setTimeout(() => void checkForUpdate({ silent: true }), 4000);
+    const stopUpdateWatch = startUpdateWatch();
 
     // user-configurable shortcuts (Instellingen -> Sneltoetsen)
     const onKey = (e: KeyboardEvent) => {
@@ -65,7 +65,7 @@ export default function App() {
     if (!isTauri())
       return () => {
         window.removeEventListener("keydown", onKey);
-        clearTimeout(updateTimer);
+        stopUpdateWatch();
       };
     const win = getCurrentWindow();
     const unlistenClose = win.onCloseRequested(async () => {
@@ -81,7 +81,7 @@ export default function App() {
     });
     return () => {
       window.removeEventListener("keydown", onKey);
-      clearTimeout(updateTimer);
+      stopUpdateWatch();
       void unlistenClose.then((fn) => fn());
       void unlistenExit.then((fn) => fn());
     };
