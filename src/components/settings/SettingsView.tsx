@@ -5,7 +5,15 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useUiStore } from "../../stores/uiStore";
-import { ACCENT_COLORS, SHORTCUT_ACTIONS, type ThemeName } from "../../types";
+import { ACCENT_COLORS, DICTATION_LOCALES, SHORTCUT_ACTIONS, type ThemeName } from "../../types";
+import {
+  getPermissions,
+  openPrivacySettings,
+  requestPermissions,
+  speechAvailable,
+  supportedLocales,
+  type SpeechPermissions,
+} from "../../lib/speech";
 import { bindingFromEvent, formatBinding, isCompleteBinding } from "../../lib/shortcuts";
 import { listBackups, makeBackup, restoreBackup } from "../../lib/backup";
 import { runExportDigest, runExportFull } from "../../lib/exportActions";
@@ -20,6 +28,7 @@ const THEMES: { id: ThemeName; label: string; hint: string }[] = [
 const CATEGORIES = [
   { id: "weergave", icon: "◐", label: "Weergave", hint: "Thema, kleur, leesbaarheid" },
   { id: "canvas", icon: "⌗", label: "Canvas", hint: "Snappen en blokken" },
+  { id: "spraak", icon: "◉", label: "Spraak", hint: "Dicteren in notities" },
   { id: "data", icon: "⛃", label: "Data", hint: "Export, backups, opslag" },
   { id: "sneltoetsen", icon: "⌘", label: "Sneltoetsen", hint: "Alle shortcuts" },
   { id: "over", icon: "☺", label: "Over Doova", hint: "Versie en info" },
@@ -142,6 +151,103 @@ const SHORTCUTS: [string, string][] = [
   ["Middelste muisknop", "Canvas verslepen (instelbaar bij Canvas)"],
   ["- of [] aan regelbegin", "Checklist-item in een notitie"],
 ];
+
+const PERMISSION_LABELS: Record<string, string> = {
+  granted: "Toegestaan",
+  denied: "Geweigerd",
+  restricted: "Geblokkeerd door je Mac",
+  undetermined: "Nog niet gevraagd",
+};
+
+function SpeechSettings() {
+  const settings = useSettingsStore();
+  const [permissions, setPermissions] = useState<SpeechPermissions | null>(null);
+  // null while unknown: an empty array genuinely means "nothing installed"
+  const [offline, setOffline] = useState<string[] | null>(null);
+
+  const refresh = () => {
+    void getPermissions().then(setPermissions).catch(() => setPermissions(null));
+    void supportedLocales(DICTATION_LOCALES.map((l) => l.id))
+      .then(setOffline)
+      .catch(() => setOffline(null));
+  };
+  useEffect(refresh, []);
+
+  if (!speechAvailable()) {
+    return (
+      <>
+        <h3 className="heading mb-3 text-[15px]">Spraak</h3>
+        <p className="rounded-themed-sm bg-surface-raised p-3 text-[12px] leading-relaxed text-ink-soft">
+          Dicteren werkt alleen in de Doova-app zelf, niet in de browserversie.
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h3 className="heading mb-3 text-[15px]">Spraak</h3>
+      <Row label="Taal om in te dicteren" hint="Ook te wisselen met het NL/EN-knopje naast de microfoon">
+        <div className="flex gap-1">
+          {DICTATION_LOCALES.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => settings.update({ dictationLocale: l.id })}
+              className={`rounded-themed-sm px-2.5 py-1 text-[12px] transition-colors ${
+                settings.dictationLocale === l.id
+                  ? "bg-accent text-accent-ink"
+                  : "bg-surface-raised text-ink-soft hover:text-ink"
+              }`}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </Row>
+      <Row label="Microfoon" hint={PERMISSION_LABELS[permissions?.microphone ?? "undetermined"]}>
+        <button
+          onClick={() => void openPrivacySettings("microphone")}
+          className="rounded-themed-sm bg-surface-raised px-2.5 py-1 text-[12px] transition-colors hover:bg-accent hover:text-accent-ink"
+        >
+          Openen
+        </button>
+      </Row>
+      <Row label="Spraakherkenning" hint={PERMISSION_LABELS[permissions?.speech ?? "undetermined"]}>
+        <button
+          onClick={() => void openPrivacySettings("speech")}
+          className="rounded-themed-sm bg-surface-raised px-2.5 py-1 text-[12px] transition-colors hover:bg-accent hover:text-accent-ink"
+        >
+          Openen
+        </button>
+      </Row>
+      {permissions &&
+        (permissions.microphone === "undetermined" || permissions.speech === "undetermined") && (
+          <div className="mt-3">
+            <ActionButton onClick={() => void requestPermissions().then(refresh)}>
+              Toestemming vragen
+            </ActionButton>
+          </div>
+        )}
+      {offline && offline.length < DICTATION_LOCALES.length && (
+        <p className="mt-4 rounded-themed-sm bg-surface-raised p-3 text-[12px] leading-relaxed text-ink-soft">
+          {DICTATION_LOCALES.filter((l) => !offline.includes(l.id))
+            .map((l) => l.label)
+            .join(" en ")}{" "}
+          staat nog niet offline op deze Mac. Voeg de taal toe via Systeeminstellingen, Toetsenbord,
+          Dictee, en klik daarna hieronder op vernieuwen.
+        </p>
+      )}
+      <div className="mt-3">
+        <ActionButton onClick={refresh}>Status vernieuwen</ActionButton>
+      </div>
+      <p className="mt-4 rounded-themed-sm bg-surface-raised p-3 text-[12px] leading-relaxed text-ink-soft">
+        Alles gebeurt op je eigen Mac: Doova vraagt macOS expliciet om offline herkenning, dus er
+        gaat geen audio naar Apple. Klik op het microfoontje in een notitie en de tekst verschijnt
+        terwijl je praat. Esc stopt.
+      </p>
+    </>
+  );
+}
 
 export function SettingsView() {
   const settings = useSettingsStore();
@@ -305,6 +411,8 @@ export function SettingsView() {
               </p>
             </>
           )}
+
+          {category === "spraak" && <SpeechSettings />}
 
           {category === "data" && (
             <>

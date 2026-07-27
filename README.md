@@ -4,6 +4,7 @@ Persoonlijke productiviteits-app voor macOS. Projecten als tabs, met blokken voo
 
 - **Checklist** — taken met subtaken, vervaldatum en kleurlabels
 - **Notities** — rich text met koppen, lijsten en checkboxen
+- **Dicteren** — klik het microfoontje in een notitie en je spraak wordt tekst, in het Nederlands of Engels. Draait volledig op je eigen Mac via de Speech-functie van macOS, dus er gaat geen audio het internet op.
 - **Bestanden** — sleep bestanden of mappen uit Finder erin; klik om ze direct weer in Finder te tonen
 - **Thema's** — Glass (licht, doorschijnend, Apple-stijl) of bemboe (neo-brutalism), plus 8 accentkleuren
 - Alles wordt lokaal opgeslagen, geen account of cloud

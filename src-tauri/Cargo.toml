@@ -1,6 +1,6 @@
 [package]
 name = "doova"
-version = "0.3.0"
+version = "0.4.0"
 description = "Persoonlijke productiviteits-app voor macOS: tabs, to-do's, notities en bestanden"
 authors = ["Roelof Junior Haar <bemboe09@gmail.com>"]
 license = "MIT"
@@ -28,4 +28,44 @@ tauri-plugin-dialog = "2.7.2"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
+
+# On-device dictation through Apple's Speech framework (see src/speech.rs).
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+  "std",
+  "block2",
+  "NSError",
+  "NSLocale",
+  "NSString",
+  "NSObject",
+] }
+objc2-speech = { version = "0.3", default-features = false, features = [
+  "std",
+  "block2",
+  "objc2-avf-audio",
+  "SFSpeechRecognizer",
+  "SFSpeechRecognitionRequest",
+  "SFSpeechRecognitionResult",
+  "SFSpeechRecognitionTask",
+  "SFTranscription",
+] }
+objc2-avf-audio = { version = "0.3", default-features = false, features = [
+  "std",
+  "block2",
+  "AVAudioBuffer",
+  "AVAudioEngine",
+  "AVAudioFormat",
+  "AVAudioIONode",
+  "AVAudioNode",
+  "AVAudioTime",
+  "AVAudioTypes",
+] }
+objc2-av-foundation = { version = "0.3", default-features = false, features = [
+  "std",
+  "block2",
+  "AVCaptureDevice",
+  "AVMediaFormat",
+] }
 

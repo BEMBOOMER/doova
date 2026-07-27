@@ -29,6 +29,10 @@ interface UiState {
   recordingShortcut: string | null;
   setRecordingShortcut: (id: string | null) => void;
 
+  /** block currently holding the microphone; only one dictation runs at a time */
+  dictatingBlockId: string | null;
+  setDictatingBlockId: (id: string | null) => void;
+
   toasts: Toast[];
   showToast: (
     message: string,
@@ -53,6 +57,9 @@ export const useUiStore = create<UiState>((set) => ({
 
   recordingShortcut: null,
   setRecordingShortcut: (recordingShortcut) => set({ recordingShortcut }),
+
+  dictatingBlockId: null,
+  setDictatingBlockId: (dictatingBlockId) => set({ dictatingBlockId }),
 
   interacting: false,
   setInteracting: (interacting) => {

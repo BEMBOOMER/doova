@@ -14,6 +14,14 @@ export type AccentColor =
   | "orange"
   | "teal";
 
+/** Locales Doova offers for dictation; macOS needs an explicit one, it does not auto-detect. */
+export type DictationLocale = "nl-NL" | "en-US";
+
+export const DICTATION_LOCALES: { id: DictationLocale; short: string; label: string }[] = [
+  { id: "nl-NL", short: "NL", label: "Nederlands" },
+  { id: "en-US", short: "EN", label: "Engels" },
+];
+
 export type ShortcutAction =
   | "palette"
   | "newBlock"
@@ -50,6 +58,8 @@ export interface SettingsData {
   panButton: 0 | 1 | 2;
   /** action id -> key binding like "mod+k"; empty string disables it */
   shortcuts: Record<ShortcutAction, string>;
+  /** language the microphone button dictates in */
+  dictationLocale: DictationLocale;
 }
 
 
@@ -65,6 +75,7 @@ export const DEFAULT_SETTINGS: SettingsData = {
   sidebarCollapsed: false,
   panButton: 1,
   shortcuts: DEFAULT_SHORTCUTS,
+  dictationLocale: "nl-NL",
 };
 
 export const ACCENT_COLORS: { id: AccentColor; hex: string; label: string }[] = [

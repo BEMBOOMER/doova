@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged into the bundled Info.plist by tauri-bundler. Without these two keys
+     macOS kills the app instead of showing a permission prompt. -->
+<plist version="1.0">
+<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Doova gebruikt je microfoon om gesproken tekst in je notities te zetten.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Doova zet je spraak op dit apparaat om naar tekst. Er wordt niets verstuurd.</string>
+</dict>
+</plist>

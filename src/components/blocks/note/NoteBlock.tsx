@@ -7,8 +7,13 @@ import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import Highlight from "@tiptap/extension-highlight";
 import type { NoteBlockData } from "../../../types";
+import { DICTATION_LOCALES } from "../../../types";
 import { useProjectsStore } from "../../../stores/projectsStore";
+import { useSettingsStore } from "../../../stores/settingsStore";
+import { useUiStore } from "../../../stores/uiStore";
 import { revealInFinder } from "../../../lib/fileSystem";
+import { speechAvailable } from "../../../lib/speech";
+import { useDictation } from "../../../hooks/useDictation";
 import { FileBadge, ImageOrRow } from "../../ui/FileThumb";
 
 function ToolbarButton({
@@ -40,9 +45,22 @@ function ToolbarButton({
 
 const HIGHLIGHT_COLORS = ["#FFF176", "#A5F3C4", "#A5D8FF", "#FFC9DE", "#E4C7FF"];
 
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="5.5" y="1.5" width="5" height="8" rx="2.5" />
+      <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function NoteBlock({ block }: { block: NoteBlockData }) {
   const setNoteContent = useProjectsStore((s) => s.setNoteContent);
   const removeNoteFile = useProjectsStore((s) => s.removeNoteFile);
+  const dictationLocale = useSettingsStore((s) => s.dictationLocale);
+  const updateSettings = useSettingsStore((s) => s.update);
+  const canDictate = speechAvailable();
+  const dictatingBlockId = useUiStore((s) => s.dictatingBlockId);
   const files = block.files ?? [];
   // popover lives in a body portal: inside the block it gets clipped by the
   // block's own scroll container
@@ -79,6 +97,58 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
     content: block.content ?? "",
     onUpdate: ({ editor }) => setNoteContent(block.id, editor.getJSON()),
   });
+
+  // Dictated text arrives as an ever-growing string, so each update replaces the
+  // range written by the previous one instead of appending to it.
+  const dictationAnchor = useRef(0);
+  const dictationLength = useRef(0);
+
+  const dictation = useDictation({
+    ownerId: block.id,
+    locale: dictationLocale,
+    onStart: () => {
+      if (!editor) return;
+      dictationAnchor.current = editor.state.selection.to;
+      dictationLength.current = 0;
+      // Typing while a tracked range is being rewritten would desync the two,
+      // so the editor is read-only for as long as the microphone is open.
+      editor.setEditable(false, false);
+    },
+    onText: (text) => {
+      if (!editor) return;
+      const from = dictationAnchor.current;
+      const range = { from, to: from + dictationLength.current };
+      // A plain string would be parsed as HTML, so it goes in as a text node.
+      if (text) {
+        editor.chain().insertContentAt(range, { type: "text", text }, { updateSelection: true }).run();
+      } else {
+        editor.chain().deleteRange(range).run();
+      }
+      dictationLength.current = text.length;
+    },
+    onDone: () => {
+      if (!editor) return;
+      editor.setEditable(true, false);
+      editor
+        .chain()
+        .focus()
+        .setTextSelection(dictationAnchor.current + dictationLength.current)
+        .run();
+    },
+  });
+
+  const { listening, busy, stop } = dictation;
+  // Another block is dictating: starting here would silently steal its microphone.
+  const blockedByOther = dictatingBlockId !== null && dictatingBlockId !== block.id;
+
+  useEffect(() => {
+    if (!busy) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") void stop();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, stop]);
 
   if (!editor) return null;
 
@@ -124,6 +194,42 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
             }}
             active={editor.isActive("highlight")} />
         </div>
+        {canDictate && (
+          <>
+            <span className="mx-0.5 h-4 w-px bg-border-themed opacity-40" />
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                void (busy ? dictation.stop() : dictation.start());
+              }}
+              disabled={blockedByOther}
+              className={`flex h-6 min-w-6 items-center justify-center rounded px-1 transition-colors disabled:opacity-30 ${
+                busy ? "bg-accent text-accent-ink" : "text-ink-soft hover:text-ink"
+              } ${listening ? "mic-pulse" : ""}`}
+              title={
+                blockedByOther
+                  ? "Een ander blok is aan het dicteren"
+                  : busy
+                    ? "Stop met dicteren (Esc)"
+                    : `Dicteren in het ${DICTATION_LOCALES.find((l) => l.id === dictationLocale)?.label}`
+              }
+            >
+              <MicIcon />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const next = DICTATION_LOCALES.find((l) => l.id !== dictationLocale);
+                if (next) updateSettings({ dictationLocale: next.id });
+              }}
+              disabled={busy || blockedByOther}
+              className="heading flex h-6 items-center justify-center rounded px-1 text-[10px] tracking-wide text-ink-soft transition-colors hover:text-ink disabled:opacity-40"
+              title="Wissel de taal waarin je dicteert"
+            >
+              {DICTATION_LOCALES.find((l) => l.id === dictationLocale)?.short}
+            </button>
+          </>
+        )}
       </div>
       <div
         onContextMenu={(e) => {

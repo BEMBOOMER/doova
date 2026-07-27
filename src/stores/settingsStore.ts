@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { SettingsData } from "../types";
-import { ACCENT_COLORS, DEFAULT_SETTINGS, DEFAULT_SHORTCUTS } from "../types";
+import { ACCENT_COLORS, DEFAULT_SETTINGS, DEFAULT_SHORTCUTS, DICTATION_LOCALES } from "../types";
 import { SETTINGS_FILE, loadJson, saveJsonDebounced } from "../lib/persistence";
 import { applyTheme, applyUiClasses, watchSystemScheme } from "../lib/theme";
 
@@ -33,12 +33,15 @@ function sanitize(saved: Partial<SettingsData> | null): SettingsData {
       saved?.panButton === 0 || saved?.panButton === 1 || saved?.panButton === 2
         ? saved.panButton
         : DEFAULT_SETTINGS.panButton,
+    dictationLocale: DICTATION_LOCALES.some((l) => l.id === saved?.dictationLocale)
+      ? saved!.dictationLocale!
+      : DEFAULT_SETTINGS.dictationLocale,
   };
 }
 
 function pickData(s: SettingsState): SettingsData {
-  const { theme, colorScheme, accentColor, snapEnabled, gridSize, compactMode, reduceTransparency, sidebarCollapsed, panButton, shortcuts } = s;
-  return { theme, colorScheme, accentColor, snapEnabled, gridSize, compactMode, reduceTransparency, sidebarCollapsed, panButton, shortcuts };
+  const { theme, colorScheme, accentColor, snapEnabled, gridSize, compactMode, reduceTransparency, sidebarCollapsed, panButton, shortcuts, dictationLocale } = s;
+  return { theme, colorScheme, accentColor, snapEnabled, gridSize, compactMode, reduceTransparency, sidebarCollapsed, panButton, shortcuts, dictationLocale };
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
