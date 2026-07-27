@@ -85,7 +85,7 @@ export default function CaptureApp() {
     // The window itself is transparent and frameless, so this panel IS the
     // window: without it you would be typing into thin air.
     <div className="h-screen w-screen p-2">
-      <div className="panel relative flex h-full w-full flex-col gap-1.5 p-3">
+      <div className="panel capture-panel relative flex h-full w-full flex-col gap-1.5 p-3">
         <textarea
           ref={inputRef}
           value={text}

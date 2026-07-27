@@ -15,6 +15,9 @@ import "../index.css";
  * and only follows the system's light/dark preference.
  */
 const root = document.documentElement;
+// Suppresses the full-viewport frost layer: in a frameless window it paints a
+// square right through the rounded panel (see index.css).
+root.classList.add("capture-window");
 root.dataset.theme = "glass";
 root.dataset.accent = "lightblue";
 root.dataset.scheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";

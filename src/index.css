@@ -236,6 +236,26 @@ body.is-interacting [data-theme="glass"] .panel,
   background: var(--surface);
 }
 
+/* The quick-capture window has no frame, so the panel inside it IS the window.
+   The frost layer that keeps light glass readable covers the whole viewport,
+   which in a frameless window means a square corner sticking out from under the
+   rounded panel; there is no window chrome here to hide it. The panel carries
+   its own near-opaque fill instead, so it stays readable on any wallpaper. */
+html.capture-window,
+html.capture-window body {
+  background: transparent;
+}
+html.capture-window body::after {
+  display: none;
+}
+.capture-panel {
+  /* a touch of the wallpaper through it, but not so much that a busy photo
+     makes the text hard to read the moment you need it most */
+  background: color-mix(in srgb, var(--toolbar-bg) 90%, transparent);
+  backdrop-filter: blur(20px) saturate(1.7);
+  -webkit-backdrop-filter: blur(20px) saturate(1.7);
+}
+
 /* The note toolbar is sticky over scrolling text, so it has to actually hide
    what passes underneath. --surface is far too sheer for that on its own: it is
    0.14 in default glass and 0.22 in dark, where text would read straight
