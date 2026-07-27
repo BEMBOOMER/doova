@@ -180,6 +180,7 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
     const validGroupIds = new Set(groups.map((g) => g.id));
     return {
       ...tab,
+      pinned: tab.pinned === true,
       blocks: blocks.map((b) =>
         b.groupId && !validGroupIds.has(b.groupId) ? { ...b, groupId: null } : b,
       ),
@@ -206,6 +207,8 @@ interface ProjectsState {
   restoreTab: (tab: ProjectTab, index: number) => void;
   setActiveTab: (tabId: string) => void;
   reorderTabs: (fromId: string, toId: string) => void;
+  reorderFolders: (fromId: string, toId: string) => void;
+  toggleTabPinned: (tabId: string) => void;
   /** puts both projects in a new collapsible sidebar folder */
   groupProjects: (aId: string, bId: string) => void;
   renameFolder: (folderId: string, name: string) => void;
@@ -423,6 +426,26 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       tabs.splice(to, 0, moved);
       return { tabs };
     });
+    persist(get());
+  },
+
+  reorderFolders: (fromId, toId) => {
+    set((s) => {
+      const folders = [...s.folders];
+      const from = folders.findIndex((f) => f.id === fromId);
+      const to = folders.findIndex((f) => f.id === toId);
+      if (from < 0 || to < 0) return s;
+      const [moved] = folders.splice(from, 1);
+      folders.splice(to, 0, moved);
+      return { folders };
+    });
+    persist(get());
+  },
+
+  toggleTabPinned: (tabId) => {
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, pinned: !t.pinned } : t)),
+    }));
     persist(get());
   },
 

@@ -109,10 +109,13 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
         if (e.key === "Escape") setEditing(false);
       }}
       onClick={(e) => e.stopPropagation()}
-      className="w-24 bg-transparent text-[12px] outline-none"
+      style={{ width: `${Math.max(6, draft.length + 1)}ch` }}
+      className="max-w-[16rem] bg-transparent text-[12px] outline-none"
     />
   ) : (
-    <span className="heading truncate text-[12px]">{group.name}</span>
+    // block, not inline: overflow-hidden does nothing on an inline span, which
+    // is what let a long name spill straight out of the chip
+    <span className="heading block truncate text-[12px]">{group.name}</span>
   );
 
   const menu =
@@ -182,7 +185,10 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
         style={{
           left: group.x + dragOffset.x,
           top: group.y + dragOffset.y,
-          width: 230,
+          // sizes to the name instead of a fixed width, with a ceiling so a very
+          // long one ellipsizes rather than stretching across the canvas
+          minWidth: 180,
+          maxWidth: 420,
           zIndex: 500,
         }}
         {...sharedPillHandlers}

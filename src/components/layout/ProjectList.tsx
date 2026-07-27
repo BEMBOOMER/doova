@@ -47,14 +47,25 @@ function ProjectRow({
   isActive,
   inFolder,
   dropHint = null,
+  sortable = true,
 }: {
   tab: ProjectTab;
   isActive: boolean;
   inFolder: boolean;
   dropHint?: DropHint;
+  /** pinned rows live outside the sortable list, so they do not reorder */
+  sortable?: boolean;
 }) {
-  const { setActiveTab, renameTab, closeTab, restoreTab, groupProjects, moveTabToFolder, tabs } =
-    useProjectsStore();
+  const {
+    setActiveTab,
+    renameTab,
+    closeTab,
+    restoreTab,
+    groupProjects,
+    moveTabToFolder,
+    toggleTabPinned,
+    tabs,
+  } = useProjectsStore();
   const { showToast, setActiveView } = useUiStore();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(tab.name);
@@ -63,7 +74,7 @@ function ProjectRow({
 
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: tab.id,
-    disabled: editing || inFolder,
+    disabled: editing || inFolder || !sortable,
   });
 
   useEffect(() => {
@@ -138,6 +149,11 @@ function ProjectRow({
       ) : (
         <span className="heading min-w-0 flex-1 truncate">{tab.name}</span>
       )}
+      {tab.pinned && !editing && (
+        <span className="shrink-0 text-[10px] opacity-60" title="Vastgezet">
+          📌
+        </span>
+      )}
       <button
         ref={menuButtonRef}
         onMouseUp={(e) => {
@@ -177,6 +193,15 @@ function ProjectRow({
               className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
             >
               ✎ Hernoemen
+            </button>
+            <button
+              onClick={() => {
+                toggleTabPinned(tab.id);
+                setMenuPos(null);
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+            >
+              {tab.pinned ? "📌 Losmaken" : "📌 Vastzetten bovenaan"}
             </button>
             {inFolder && (
               <button
@@ -220,12 +245,26 @@ function ProjectRow({
   );
 }
 
-function FolderRow({ folder, children }: { folder: ProjectFolder; children: React.ReactNode }) {
+function FolderRow({
+  folder,
+  children,
+  dropHint = null,
+}: {
+  folder: ProjectFolder;
+  children: React.ReactNode;
+  dropHint?: "before" | "after" | null;
+}) {
   const { renameFolder, toggleFolder, dissolveFolder } = useProjectsStore();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(folder.name);
   const { menuPos, setMenuPos, menuRef, menuButtonRef, openAt } = useMenu();
   const inputRef = useRef<HTMLInputElement>(null);
+  // the pointer sensor only starts a drag after 6px, so a plain click still
+  // reaches the collapse toggle underneath
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+    id: folder.id,
+    disabled: editing,
+  });
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
@@ -237,8 +276,23 @@ function FolderRow({ folder, children }: { folder: ProjectFolder; children: Reac
   };
 
   return (
-    <div>
+    <div
+      ref={setNodeRef}
+      style={{
+        opacity: isDragging ? 0.45 : 1,
+        // rows stay put while dragging, so an edge line is the only thing
+        // telling you where the folder will land
+        boxShadow:
+          dropHint === "before"
+            ? "0 -2px 0 0 var(--color-accent)"
+            : dropHint === "after"
+              ? "0 2px 0 0 var(--color-accent)"
+              : undefined,
+      }}
+    >
       <div
+        {...attributes}
+        {...listeners}
         onClick={() => toggleFolder(folder.id)}
         onDoubleClick={() => {
           setDraft(folder.name);
@@ -268,6 +322,7 @@ function FolderRow({ folder, children }: { folder: ProjectFolder; children: Reac
               if (e.key === "Escape") setEditing(false);
             }}
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             className="w-full bg-transparent text-[13px] outline-none"
           />
         ) : (
@@ -285,6 +340,7 @@ function FolderRow({ folder, children }: { folder: ProjectFolder; children: Reac
             openAt(rect.right + 4, rect.top);
           }}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           className="hidden h-5 w-5 shrink-0 items-center justify-center rounded text-[12px] opacity-70 hover:opacity-100 group-hover:flex"
           title="Map-opties"
         >
@@ -329,7 +385,8 @@ function FolderRow({ folder, children }: { folder: ProjectFolder; children: Reac
 const stayPut = () => null;
 
 export function ProjectList() {
-  const { tabs, folders, activeTabId, reorderTabs, groupProjects } = useProjectsStore();
+  const { tabs, folders, activeTabId, reorderTabs, reorderFolders, groupProjects } =
+    useProjectsStore();
   const showToast = useUiStore((s) => s.showToast);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [drag, setDrag] = useState<{
@@ -337,6 +394,20 @@ export function ProjectList() {
     overId: string | null;
     zone: DropHint;
   }>({ activeId: null, overId: null, zone: null });
+  const [folderDrag, setFolderDrag] = useState<string | null>(null);
+  const [folderOver, setFolderOver] = useState<{ id: string; side: "before" | "after" } | null>(
+    null,
+  );
+
+  const folderSide = (e: DragMoveEvent | DragEndEvent): "before" | "after" | null => {
+    if (!e.over || e.active.id === e.over.id) return null;
+    const activeRect = e.active.rect.current.translated;
+    if (!activeRect) return null;
+    return activeRect.top + activeRect.height / 2 <
+      e.over.rect.top + e.over.rect.height / 2
+      ? "before"
+      : "after";
+  };
 
   // on top of a row = group into a folder, near an edge = reorder
   const zoneFor = (e: DragMoveEvent | DragEndEvent): DropHint => {
@@ -364,20 +435,78 @@ export function ProjectList() {
     }
   };
 
-  const loose = tabs.filter((t) => !t.folderId || !folders.some((f) => f.id === t.folderId));
+  // pinned projects are lifted out of their folder and out of the loose list, so
+  // each one shows up exactly once
+  const pinned = tabs.filter((t) => t.pinned);
+  const rest = tabs.filter((t) => !t.pinned);
+  const loose = rest.filter((t) => !t.folderId || !folders.some((f) => f.id === t.folderId));
   const activeTab = drag.activeId ? tabs.find((t) => t.id === drag.activeId) : null;
+  const activeFolder = folderDrag ? folders.find((f) => f.id === folderDrag) : null;
 
   return (
     <div className="space-y-0.5">
-      {folders.map((folder) => (
-        <FolderRow key={folder.id} folder={folder}>
-          {tabs
-            .filter((t) => t.folderId === folder.id)
-            .map((tab) => (
-              <ProjectRow key={tab.id} tab={tab} isActive={tab.id === activeTabId} inFolder />
-            ))}
-        </FolderRow>
-      ))}
+      {pinned.length > 0 && (
+        <>
+          <p className="px-2.5 pb-0.5 pt-1 text-[10.5px] uppercase tracking-wide text-ink-soft">
+            Vastgezet
+          </p>
+          {pinned.map((tab) => (
+            <ProjectRow
+              key={tab.id}
+              tab={tab}
+              isActive={tab.id === activeTabId}
+              inFolder={false}
+              sortable={false}
+            />
+          ))}
+          <div className="my-1 h-px bg-border-themed/30" />
+        </>
+      )}
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={(e) => setFolderDrag(String(e.active.id))}
+        onDragMove={(e) => {
+          const side = folderSide(e);
+          setFolderOver(side && e.over ? { id: String(e.over.id), side } : null);
+        }}
+        onDragCancel={() => {
+          setFolderDrag(null);
+          setFolderOver(null);
+        }}
+        onDragEnd={(e) => {
+          setFolderDrag(null);
+          setFolderOver(null);
+          if (e.over && e.active.id !== e.over.id) {
+            reorderFolders(String(e.active.id), String(e.over.id));
+          }
+        }}
+      >
+        <SortableContext items={folders.map((f) => f.id)} strategy={stayPut}>
+          {folders.map((folder) => (
+            <FolderRow
+              key={folder.id}
+              folder={folder}
+              dropHint={folderOver?.id === folder.id ? folderOver.side : null}
+            >
+              {rest
+                .filter((t) => t.folderId === folder.id)
+                .map((tab) => (
+                  <ProjectRow key={tab.id} tab={tab} isActive={tab.id === activeTabId} inFolder />
+                ))}
+            </FolderRow>
+          ))}
+        </SortableContext>
+        <DragOverlay dropAnimation={null}>
+          {activeFolder ? (
+            <div className="panel heading truncate px-2.5 py-1.5 text-[13px]">
+              🗂 {activeFolder.name}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

@@ -219,6 +219,8 @@ export interface ProjectTab {
   createdAt: string;
   /** set when the project lives inside a sidebar folder */
   folderId?: string | null;
+  /** pinned projects sit in their own section at the top of the sidebar */
+  pinned?: boolean;
 }
 
 export interface AppData {
