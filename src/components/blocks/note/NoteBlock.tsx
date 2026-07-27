@@ -154,7 +154,7 @@ export function NoteBlock({ block }: { block: NoteBlockData }) {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 -mx-1 mb-1 flex flex-wrap items-center gap-0.5 rounded-themed-sm px-1 py-0.5">
+      <div className="note-toolbar sticky top-0 z-10 -mx-1 mb-1 flex flex-wrap items-center gap-0.5 rounded-themed-sm px-1 py-0.5">
         <ToolbarButton editor={editor} label="B" title="Vet"
           action={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")} />

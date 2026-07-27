@@ -1,6 +1,6 @@
 [package]
 name = "doova"
-version = "0.5.1"
+version = "0.5.2"
 description = "Persoonlijke productiviteits-app voor macOS: tabs, to-do's, notities en bestanden"
 authors = ["Roelof Junior Haar <bemboe09@gmail.com>"]
 license = "MIT"
