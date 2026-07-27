@@ -492,18 +492,28 @@ kbd {
   background: rgba(255, 255, 255, 0.045);
   color: var(--accent);
 }
-/* the ring keeps breathing the way the button in the app does */
-.mic-ring {
-  position: absolute;
-  width: 84px; height: 84px;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  animation: mic-ring 2.6s var(--ease) infinite;
+/* a moodboard in miniature: tiles settling into place, then holding still */
+.mood-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  width: 76px;
 }
-@keyframes mic-ring {
-  0%   { transform: scale(0.72); opacity: 0.9; }
-  70%  { transform: scale(1.35); opacity: 0; }
-  100% { transform: scale(1.35); opacity: 0; }
+.mood-grid i {
+  display: block;
+  height: 22px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--t) 55%, transparent);
+  animation: mood-tile 3.2s var(--ease) infinite;
+}
+.mood-grid i:nth-child(1) { height: 30px; animation-delay: 0s; }
+.mood-grid i:nth-child(2) { animation-delay: 0.12s; }
+.mood-grid i:nth-child(3) { animation-delay: 0.24s; }
+.mood-grid i:nth-child(4) { height: 30px; animation-delay: 0.36s; }
+.mood-grid i:nth-child(5) { grid-column: span 2; height: 18px; animation-delay: 0.48s; }
+@keyframes mood-tile {
+  0%, 55%, 100% { opacity: 0.75; transform: translateY(0); }
+  20%           { opacity: 1;    transform: translateY(-2px); }
 }
 .whatsnew-langs { display: flex; gap: 0.4rem; }
 .whatsnew-langs b {
@@ -522,7 +532,7 @@ kbd {
   .whatsnew-visual { width: 100%; aspect-ratio: 2 / 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mic-ring { animation: none; opacity: 0.5; transform: scale(1); }
+  .mood-grid i { animation: none; }
 }
 
 /* ---------- download ---------- */
