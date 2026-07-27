@@ -18,8 +18,8 @@ use std::time::Duration;
 
 use block2::{DynBlock, RcBlock};
 use objc2::rc::Retained;
-use objc2::runtime::Bool;
-use objc2::AllocAnyThread;
+use objc2::runtime::{Bool, NSObjectProtocol};
+use objc2::{sel, AllocAnyThread};
 use objc2_av_foundation::{AVAuthorizationStatus, AVCaptureDevice, AVMediaTypeAudio};
 use objc2_avf_audio::{
     AVAudioEngine, AVAudioInputNode, AVAudioNodeBus, AVAudioPCMBuffer, AVAudioTime,
@@ -347,7 +347,12 @@ fn build_segment(
     unsafe {
         request.setShouldReportPartialResults(true);
         request.setRequiresOnDeviceRecognition(true);
-        request.setAddsPunctuation(true);
+    }
+    // Automatic punctuation only exists from macOS 13, and Doova still supports
+    // 12. Calling the setter there would be an unrecognised selector, which is a
+    // crash rather than an error, so it is asked for instead of assumed.
+    if request.respondsToSelector(sel!(setAddsPunctuation:)) {
+        unsafe { request.setAddsPunctuation(true) };
     }
 
     let handler_app = app.clone();
