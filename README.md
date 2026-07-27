@@ -15,6 +15,8 @@ Gebouwd met [Tauri v2](https://tauri.app) + React + TypeScript.
 
 ## Download
 
+De landingspagina staat op [doova.vercel.app](https://doova.vercel.app), uit de losse repo [doova-site](https://github.com/BEMBOOMER/doova-site).
+
 Pak de nieuwste DMG van de [Releases-pagina](../../releases), open hem en sleep Doova naar Programma's.
 
 ### Eerste keer openen (belangrijk)
