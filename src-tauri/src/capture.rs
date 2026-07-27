@@ -44,6 +44,9 @@ fn build_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     .transparent(true)
     .always_on_top(true)
     .visible_on_all_workspaces(true)
+    // macOS shadows the whole window rect, not the rounded panel inside it, so
+    // it lands as a dark edge next to the panel instead of under it
+    .shadow(false)
     .visible(false)
     .center()
     .build()?;

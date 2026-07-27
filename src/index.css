@@ -254,9 +254,9 @@ html.capture-window body::after {
   background: color-mix(in srgb, var(--toolbar-bg) 90%, transparent);
   backdrop-filter: blur(20px) saturate(1.7);
   -webkit-backdrop-filter: blur(20px) saturate(1.7);
-  /* its own shadow, since the rim below is switched off and a frameless
-     transparent window gets none from macOS */
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  /* no shadow at all: macOS draws its own around a frameless window and the
+     two stacked read as a dark smear beside the panel rather than depth */
+  box-shadow: none;
 }
 /* The glass rim paints an offset drop-shadow meant to read as thickness against
    the app behind it. With nothing behind it that shadow becomes a hard dark
