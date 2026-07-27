@@ -38,7 +38,9 @@ npm install
 npm run tauri dev
 ```
 
-Release bouwen gebeurt automatisch: push een tag `v*` en GitHub Actions bouwt de universal DMG (Intel + Apple Silicon) als draft release.
+Release bouwen gebeurt automatisch: push een tag `v*` en GitHub Actions bouwt de DMG voor Apple Silicon als draft release. De draft is met opzet: de auto-updater kijkt naar `releases/latest`, dus zolang je hem niet publiceert krijgt niemand hem binnen.
+
+Daarvoor moeten wel twee repo-secrets staan, anders zijn de updater-artefacten niet ondertekend en weigert elke geïnstalleerde Doova ze: `TAURI_SIGNING_PRIVATE_KEY` (de inhoud van `~/.tauri/doova.key`) en `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0

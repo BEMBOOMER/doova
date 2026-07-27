@@ -458,6 +458,73 @@ kbd {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* ---------- nieuw in deze versie ---------- */
+
+.whatsnew {
+  --accent: #ccff00;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: clamp(1.6rem, 4vw, 3.4rem);
+  border-radius: 26px;
+  padding: clamp(1.8rem, 4vw, 3rem);
+}
+.whatsnew h2 {
+  margin: 0.9rem 0 0.8rem;
+  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+  letter-spacing: -0.03em;
+}
+.whatsnew .lede { margin: 0 0 1rem; }
+.whatsnew-note {
+  color: var(--ink-3);
+  font-size: 0.94rem;
+  max-width: 52ch;
+}
+.whatsnew-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  width: clamp(140px, 18vw, 190px);
+  aspect-ratio: 1;
+  border-radius: 22px;
+  border: 1px solid var(--rim-2);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--accent);
+}
+/* the ring keeps breathing the way the button in the app does */
+.mic-ring {
+  position: absolute;
+  width: 84px; height: 84px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: mic-ring 2.6s var(--ease) infinite;
+}
+@keyframes mic-ring {
+  0%   { transform: scale(0.72); opacity: 0.9; }
+  70%  { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.whatsnew-langs { display: flex; gap: 0.4rem; }
+.whatsnew-langs b {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  padding: 0.26rem 0.5rem;
+  border-radius: 7px;
+  color: var(--ink-2);
+  border: 1px solid var(--rim-2);
+  background: rgba(255, 255, 255, 0.06);
+}
+@media (max-width: 720px) {
+  .whatsnew { grid-template-columns: 1fr; }
+  .whatsnew-visual { width: 100%; aspect-ratio: 2 / 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mic-ring { animation: none; opacity: 0.5; transform: scale(1); }
+}
+
 /* ---------- download ---------- */
 
 .download {
