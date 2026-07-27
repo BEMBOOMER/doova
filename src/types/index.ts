@@ -139,8 +139,21 @@ export interface CalendarEvent {
   color?: string | null;
 }
 
+// ---------- moodboard ----------
+/** Images live as copies in the app's own images folder, so the board survives
+ *  the original being moved or thrown away. `file` is the name inside it. */
+export interface MoodboardImage {
+  id: string;
+  file: string;
+  name: string;
+  addedAt: string;
+  /** natural size, kept so the grid can reserve space before the image loads */
+  width?: number;
+  height?: number;
+}
+
 // ---------- blocks ----------
-export type BlockType = "note" | "file-organizer" | "calendar";
+export type BlockType = "note" | "file-organizer" | "calendar" | "moodboard";
 
 interface BaseBlock {
   id: string;
@@ -180,7 +193,16 @@ export interface CalendarBlockData extends BaseBlock {
   events: CalendarEvent[];
 }
 
-export type Block = NoteBlockData | FileOrganizerBlockData | CalendarBlockData;
+export interface MoodboardBlockData extends BaseBlock {
+  type: "moodboard";
+  images: MoodboardImage[];
+}
+
+export type Block =
+  | NoteBlockData
+  | FileOrganizerBlockData
+  | CalendarBlockData
+  | MoodboardBlockData;
 
 // ---------- project / app ----------
 export interface ProjectFolder {

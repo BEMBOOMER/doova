@@ -246,7 +246,8 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
 const CANVAS_MARGIN = 220;
 
 export function CanvasBoard() {
-  const { tabs, activeTabId, addBlock, addCalendarBlock } = useProjectsStore();
+  const { tabs, activeTabId, addBlock, addCalendarBlock, promoteBlockToMoodboard } =
+    useProjectsStore();
   const setSelectedBlockId = useUiStore((s) => s.setSelectedBlockId);
   const tab = tabs.find((t) => t.id === activeTabId);
 
@@ -458,6 +459,16 @@ export function CanvasBoard() {
               className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
             >
               📅 Agenda-blok hier
+            </button>
+            <button
+              onClick={() => {
+                const id = addBlock({ x: ctxMenu.canvasX, y: ctxMenu.canvasY });
+                promoteBlockToMoodboard(id, []);
+                setCtxMenu(null);
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+            >
+              ▦ Moodboard hier
             </button>
           </div>,
           document.body,

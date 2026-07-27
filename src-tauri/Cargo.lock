@@ -807,6 +807,7 @@ dependencies = [
 name = "doova"
 version = "0.4.0"
 dependencies = [
+ "base64 0.22.1",
  "block2",
  "objc2",
  "objc2-app-kit",

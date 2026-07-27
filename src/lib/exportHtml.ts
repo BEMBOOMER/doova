@@ -152,7 +152,29 @@ function fileRows(items: { name: string; path: string; missing?: boolean }[]): s
     .join("");
 }
 
-function bodyForBlock(block: Block): string {
+/**
+ * Data URI per stored image filename, already scaled to fit a page. The
+ * converter ignores file: URLs entirely and renders whatever it does load at
+ * natural pixel size, so both the source and the size are settled before the
+ * HTML is written.
+ */
+export type ImageData = Map<string, string>;
+
+function moodboardBody(
+  images: { file: string; name: string }[],
+  data: ImageData,
+): string {
+  if (images.length === 0) return "<p><em>Nog geen afbeeldingen</em></p>";
+  return images
+    .map((image) => {
+      const uri = data.get(image.file);
+      if (!uri) return `<p>${escapeHtml(image.name)} <span class="path">(kon niet worden ingesloten)</span></p>`;
+      return `<p><img src="${uri}" /></p><p class="path">${escapeHtml(image.name)}</p>`;
+    })
+    .join("");
+}
+
+function bodyForBlock(block: Block, images: ImageData): string {
   if (block.type === "note") {
     const note = noteToHtml(block.content) || "<p><em>Leeg</em></p>";
     const files = block.files ?? [];
@@ -160,6 +182,7 @@ function bodyForBlock(block: Block): string {
     return `${note}<div class="attachments"><h2>Bijlagen</h2>${fileRows(files)}</div>`;
   }
   if (block.type === "file-organizer") return fileRows(block.items);
+  if (block.type === "moodboard") return moodboardBody(block.images, images);
 
   const events = [...block.events].sort((a, b) => a.date.localeCompare(b.date));
   if (events.length === 0) return "<p><em>Geen afspraken</em></p>";
@@ -175,7 +198,11 @@ function bodyForBlock(block: Block): string {
 }
 
 /** Standalone document for one block, ready for the native converter. */
-export function blockToHtmlDocument(block: Block, projectName: string): string {
+export function blockToHtmlDocument(
+  block: Block,
+  projectName: string,
+  imageData: ImageData = new Map(),
+): string {
   const stamp = new Date().toLocaleDateString("nl-NL", {
     day: "numeric",
     month: "long",
@@ -186,7 +213,7 @@ export function blockToHtmlDocument(block: Block, projectName: string): string {
     `<style>${STYLESHEET}</style></head><body>`,
     `<h1>${escapeHtml(block.title)}</h1>`,
     `<p class="meta">${escapeHtml(projectName)} &middot; ${escapeHtml(stamp)}</p>`,
-    bodyForBlock(block),
+    bodyForBlock(block, imageData),
     "</body></html>",
   ].join("");
 }

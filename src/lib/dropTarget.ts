@@ -2,6 +2,7 @@ import type { Block, FileOrganizerItem } from "../types";
 
 export type DropPlan =
   | { action: "append"; blockId: string; items: FileOrganizerItem[] }
+  | { action: "moodboard"; blockId: string; paths: string[] }
   | { action: "create"; items: FileOrganizerItem[] };
 
 /**
@@ -18,6 +19,12 @@ export function planDrop(block: Block | undefined, items: FileOrganizerItem[]): 
 
   // calendar blocks cannot hold files; drop next to them instead
   if (block.type === "calendar") return { action: "create", items };
+
+  // a moodboard takes the images and ignores the rest, rather than turning
+  // into a file list the moment a stray PDF lands on it
+  if (block.type === "moodboard") {
+    return { action: "moodboard", blockId: block.id, paths: items.map((it) => it.path) };
+  }
 
   return { action: "append", blockId: block.id, items: fresh };
 }

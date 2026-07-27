@@ -28,6 +28,7 @@ tauri-plugin-dialog = "2.7.2"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
+base64 = "0.22"
 
 # On-device dictation through Apple's Speech framework (see src/speech.rs).
 [target.'cfg(target_os = "macos")'.dependencies]

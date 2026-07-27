@@ -3,6 +3,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useProjectsStore } from "../stores/projectsStore";
 import { useUiStore } from "../stores/uiStore";
 import { makeFileItem, revealInFinder } from "../lib/fileSystem";
+import { importImagePaths, isImagePath } from "../lib/moodboard";
 import { planDrop } from "../lib/dropTarget";
 import { isTauri } from "../lib/ids";
 
@@ -56,7 +57,21 @@ export function useFileDrop() {
         const block = tab.blocks.find((b) => b.id === blockId);
         const plan = planDrop(block, items);
 
-        if (plan.action === "append") {
+        if (plan.action === "moodboard") {
+          const images = await importImagePaths(plan.paths);
+          if (images.length === 0) {
+            showToast(
+              plan.paths.some(isImagePath)
+                ? "Deze afbeelding kon niet worden toegevoegd"
+                : "Een moodboard neemt alleen afbeeldingen",
+            );
+            return;
+          }
+          store.addMoodboardImages(plan.blockId, images);
+          showToast(
+            images.length === 1 ? "Beeld toegevoegd" : `${images.length} beelden toegevoegd`,
+          );
+        } else if (plan.action === "append") {
           store.addFilesToBlock(plan.blockId, plan.items);
           notify(plan.items.length, paths[0]);
         } else {

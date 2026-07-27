@@ -8,6 +8,7 @@ import type {
   CalendarEvent,
   ChecklistItem,
   FileOrganizerItem,
+  MoodboardImage,
   NoteBlockData,
   ProjectFolder,
   ProjectTab,
@@ -20,6 +21,7 @@ import {
   SCHEMA_VERSION,
 } from "../types";
 import { newId, nowIso } from "../lib/ids";
+import { copyStoredImages } from "../lib/moodboard";
 import { DATA_FILE, loadJson, saveJsonDebounced } from "../lib/persistence";
 
 const GAP = 16;
@@ -226,6 +228,10 @@ interface ProjectsState {
 
   setNoteContent: (blockId: string, content: JSONContent) => void;
   promoteBlockToFileOrganizer: (blockId: string, items: FileOrganizerItem[]) => void;
+  promoteBlockToMoodboard: (blockId: string, images: MoodboardImage[]) => void;
+  addMoodboardImages: (blockId: string, images: MoodboardImage[]) => void;
+  removeMoodboardImage: (blockId: string, imageId: string) => void;
+  setMoodboardImages: (blockId: string, images: MoodboardImage[]) => void;
   /** adds files to a note (as attachments) or to a file block (as items) */
   addFilesToBlock: (blockId: string, items: FileOrganizerItem[]) => void;
   removeNoteFile: (blockId: string, itemId: string) => void;
@@ -545,6 +551,8 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   },
 
   duplicateBlock: (blockId) => {
+    let cloneId: string | null = null;
+    let sourceImages: MoodboardImage[] | null = null;
     set((s) => ({
       tabs: withTab(s.tabs, s.activeTabId, (t) => {
         const src = t.blocks.find((b) => b.id === blockId);
@@ -565,10 +573,25 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         if (clone.type === "calendar") {
           clone.events = clone.events.map((ev) => ({ ...ev, id: newId() }));
         }
+        if (clone.type === "moodboard") {
+          clone.images = clone.images.map((img) => ({ ...img, id: newId() }));
+          // The copy starts out pointing at the original's files and gets its
+          // own a moment later; see setMoodboardImages.
+          cloneId = clone.id;
+          sourceImages = clone.images;
+        }
         return { ...t, blocks: [...t.blocks, clone] };
       }),
     }));
     persist(get());
+
+    if (cloneId && sourceImages) {
+      const target = cloneId;
+      const originals = sourceImages;
+      void copyStoredImages(originals).then((copies) => {
+        if (copies.length > 0) get().setMoodboardImages(target, copies);
+      });
+    }
   },
 
   setBlockColor: (blockId, color) => {
@@ -622,6 +645,55 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     set((s) => ({
       tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
         b.type === "note" ? { ...b, content } : b,
+      ),
+    }));
+    persist(get());
+  },
+
+  promoteBlockToMoodboard: (blockId, images) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) => {
+        if (b.type === "moodboard") return { ...b, images: [...b.images, ...images] };
+        if (b.type !== "note") return b;
+        return {
+          id: b.id,
+          type: "moodboard",
+          title: b.title,
+          createdAt: b.createdAt,
+          layout: b.layout,
+          color: b.color ?? null,
+          groupId: b.groupId ?? null,
+          images,
+        };
+      }),
+    }));
+    persist(get());
+  },
+
+  addMoodboardImages: (blockId, images) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
+        b.type === "moodboard" ? { ...b, images: [...b.images, ...images] } : b,
+      ),
+    }));
+    persist(get());
+  },
+
+  removeMoodboardImage: (blockId, imageId) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
+        b.type === "moodboard"
+          ? { ...b, images: b.images.filter((img) => img.id !== imageId) }
+          : b,
+      ),
+    }));
+    persist(get());
+  },
+
+  setMoodboardImages: (blockId, images) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
+        b.type === "moodboard" ? { ...b, images } : b,
       ),
     }));
     persist(get());

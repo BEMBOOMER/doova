@@ -11,6 +11,7 @@ import { isTypingTarget, matches } from "./lib/shortcuts";
 import { runExportFull } from "./lib/exportActions";
 import { startBackupSchedule } from "./lib/backup";
 import { startUpdateWatch } from "./lib/updater";
+import { sweepUnusedImages } from "./lib/moodboard";
 import { useFileDrop } from "./hooks/useFileDrop";
 import { Sidebar } from "./components/layout/Sidebar";
 import { CanvasBoard } from "./components/layout/CanvasBoard";
@@ -26,7 +27,24 @@ export default function App() {
 
   useEffect(() => {
     void useSettingsStore.getState().load();
-    void useProjectsStore.getState().load().then(() => startBackupSchedule());
+    void useProjectsStore
+      .getState()
+      .load()
+      .then(() => {
+        startBackupSchedule();
+        // Deleting a board or an image is undoable, so their files stay put and
+        // the orphans are collected here instead, once undo history is gone.
+        //
+        // Never after a failed load: the store seeds an empty project then, and
+        // sweeping against that would delete every image while the real data is
+        // still sitting in data.json.bak waiting to be recovered.
+        const state = useProjectsStore.getState();
+        if (state.loadFailed) return;
+        const files = state.tabs.flatMap((tab) =>
+          tab.blocks.flatMap((b) => (b.type === "moodboard" ? b.images.map((i) => i.file) : [])),
+        );
+        void sweepUnusedImages(files);
+      });
 
     // stil op de achtergrond: alleen een melding als er echt iets nieuws is
     const stopUpdateWatch = startUpdateWatch();

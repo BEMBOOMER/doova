@@ -3,6 +3,7 @@ use tauri::{Emitter, RunEvent};
 
 #[cfg(target_os = "macos")]
 pub mod docexport;
+mod images;
 #[cfg(target_os = "macos")]
 mod speech;
 
@@ -23,6 +24,10 @@ pub fn run() {
 
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        images::import_image_file,
+        images::import_image_bytes,
+        images::copy_stored_image,
+        images::sweep_unused_images,
         speech::speech_permissions,
         speech::speech_request_permissions,
         speech::speech_supported_locales,
