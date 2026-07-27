@@ -2,6 +2,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Emitter, RunEvent};
 
 #[cfg(target_os = "macos")]
+pub mod docexport;
+#[cfg(target_os = "macos")]
 mod speech;
 
 // Cmd+Q does not fire the window's close-requested event, so the frontend
@@ -26,6 +28,7 @@ pub fn run() {
         speech::speech_supported_locales,
         speech::speech_start,
         speech::speech_stop,
+        docexport::export_document,
     ]);
 
     builder

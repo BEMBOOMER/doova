@@ -4,6 +4,7 @@ import type { Block } from "../../types";
 import { ACCENT_COLORS } from "../../types";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useUiStore } from "../../stores/uiStore";
+import { exportBlockAs } from "../../lib/exportDocument";
 import { NoteBlock } from "./note/NoteBlock";
 import { FileOrganizerBlock } from "./file-organizer/FileOrganizerBlock";
 import { CalendarBlock } from "./calendar/CalendarBlock";
@@ -29,8 +30,8 @@ export function BlockContainer({
     tabs,
     activeTabId,
   } = useProjectsStore();
-  const otherBlocks =
-    tabs.find((t) => t.id === activeTabId)?.blocks.filter((b) => b.id !== block.id) ?? [];
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const otherBlocks = activeTab?.blocks.filter((b) => b.id !== block.id) ?? [];
   const showToast = useUiStore((s) => s.showToast);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(block.title);
@@ -202,6 +203,24 @@ export function BlockContainer({
               className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
             >
               ✎ Hernoemen
+            </button>
+            <button
+              onClick={() => {
+                setMenuPos(null);
+                void exportBlockAs(block, activeTab?.name ?? "Doova", "pdf");
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+            >
+              ⬇ Exporteer als PDF
+            </button>
+            <button
+              onClick={() => {
+                setMenuPos(null);
+                void exportBlockAs(block, activeTab?.name ?? "Doova", "docx");
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+            >
+              ⬇ Exporteer als Word
             </button>
             <button
               onClick={() => {
