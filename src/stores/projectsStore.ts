@@ -22,6 +22,7 @@ import {
 } from "../types";
 import { newId, nowIso } from "../lib/ids";
 import { copyStoredImages } from "../lib/moodboard";
+import { makeWelcomeTab } from "../lib/onboarding";
 import { DATA_FILE, loadJson, saveJsonDebounced } from "../lib/persistence";
 
 const GAP = 16;
@@ -70,6 +71,13 @@ export function findFreeSlot(
 
 function maxZ(blocks: Block[]): number {
   return blocks.reduce((m, b) => Math.max(m, b.layout.z), 0);
+}
+
+/** Title for a captured note: its opening line, shortened to fit a block header. */
+function firstLine(text: string): string {
+  const line = text.split("\n").find((l) => l.trim()) ?? "";
+  const trimmed = line.trim();
+  return trimmed.length > 42 ? `${trimmed.slice(0, 41)}…` : trimmed || "Losse gedachte";
 }
 
 /** "Blok 1", "Blok 2", ... skipping numbers already in use */
@@ -181,6 +189,7 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
     return {
       ...tab,
       pinned: tab.pinned === true,
+      inbox: tab.inbox === true,
       blocks: blocks.map((b) =>
         b.groupId && !validGroupIds.has(b.groupId) ? { ...b, groupId: null } : b,
       ),
@@ -218,6 +227,7 @@ interface ProjectsState {
   moveTabToFolder: (tabId: string, folderId: string | null) => void;
 
   addBlock: (at?: { x: number; y: number }) => string;
+  addToInbox: (text: string) => void;
   addCalendarBlock: (at?: { x: number; y: number }) => void;
   removeBlock: (blockId: string) => void;
   restoreBlock: (tabId: string, block: Block) => void;
@@ -370,8 +380,10 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       const first = makeTab("Project 1");
       set({ tabs: [first], activeTabId: first.id, loaded: true, loadFailed: true });
     } else {
-      const first = makeTab("Project 1");
-      set({ tabs: [first], activeTabId: first.id, loaded: true });
+      // "missing" only: a failed read lands in the branch above and must never
+      // reach this, or a recoverable data.json would be replaced by samples
+      const welcome = makeWelcomeTab();
+      set({ tabs: [welcome], activeTabId: welcome.id, loaded: true });
       persist(get());
     }
   },
@@ -515,6 +527,43 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     }));
     persist(get());
     return id;
+  },
+
+  /**
+   * Where quick capture lands. Deliberately does not touch activeTabId: you are
+   * in another app when this fires, and yanking the canvas out from under
+   * whatever you had open would be a surprise on your next visit.
+   */
+  addToInbox: (text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    set((s) => {
+      const existing = s.tabs.find((t) => t.inbox);
+      const target: ProjectTab = existing ?? {
+        ...makeTab("Inbox"),
+        inbox: true,
+        pinned: true,
+      };
+      const block: NoteBlockData = {
+        ...makeBlock(target.blocks),
+        title: firstLine(trimmed),
+        content: {
+          type: "doc",
+          content: trimmed.split("\n").map((line) => ({
+            type: "paragraph",
+            ...(line ? { content: [{ type: "text", text: line }] } : {}),
+          })),
+        },
+      };
+      const filled = { ...target, blocks: [...target.blocks, block] };
+      return {
+        tabs: existing
+          ? s.tabs.map((t) => (t.id === target.id ? filled : t))
+          : [filled, ...s.tabs],
+        activeTabId: s.activeTabId ?? filled.id,
+      };
+    });
+    persist(get());
   },
 
   addCalendarBlock: (at) => {

@@ -54,3 +54,42 @@ export function isTypingTarget(target: EventTarget | null): boolean {
     !!el.closest?.(".ProseMirror")
   );
 }
+
+/**
+ * Doova's own binding format translated into a Tauri accelerator, for the one
+ * shortcut that macOS registers system-wide rather than the webview.
+ *
+ * Returns null for anything Tauri cannot parse, so a binding that would silently
+ * leave you without a working hotkey is refused at the source instead.
+ */
+const ACCELERATOR_KEYS: Record<string, string> = {
+  " ": "Space",
+  Enter: "Enter",
+  Escape: "Escape",
+  Tab: "Tab",
+  Backspace: "Backspace",
+  Delete: "Delete",
+  ArrowUp: "Up",
+  ArrowDown: "Down",
+  ArrowLeft: "Left",
+  ArrowRight: "Right",
+};
+
+export function toAccelerator(binding: string): string | null {
+  if (!isCompleteBinding(binding)) return null;
+  const parts = binding.split("+");
+  const key = parts.pop() ?? "";
+  const modifiers = parts.map((p) =>
+    p === "mod" ? "CmdOrCtrl" : p === "alt" ? "Alt" : p === "shift" ? "Shift" : "",
+  );
+  // A system-wide hotkey without modifiers would swallow the key everywhere
+  if (modifiers.some((m) => !m) || modifiers.length === 0) return null;
+
+  let accelKey: string | null = null;
+  if (ACCELERATOR_KEYS[key]) accelKey = ACCELERATOR_KEYS[key];
+  else if (key.length === 1 && /[a-z0-9]/i.test(key)) accelKey = key.toUpperCase();
+  else if (/^F\d{1,2}$/.test(key)) accelKey = key;
+  if (!accelKey) return null;
+
+  return [...modifiers, accelKey].join("+");
+}

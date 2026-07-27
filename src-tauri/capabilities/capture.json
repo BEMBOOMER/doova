@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "capture",
+  "description": "Quick-capture window: types a thought and emits it. Deliberately has no filesystem access, because the main window is the only thing allowed to write data.json.",
+  "windows": ["capture"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-center",
+    "core:window:allow-start-dragging"
+  ]
+}

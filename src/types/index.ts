@@ -27,7 +27,8 @@ export type ShortcutAction =
   | "newBlock"
   | "toggleSidebar"
   | "settings"
-  | "exportProject";
+  | "exportProject"
+  | "quickCapture";
 
 export const SHORTCUT_ACTIONS: { id: ShortcutAction; label: string; hint: string }[] = [
   { id: "palette", label: "Zoeken & acties", hint: "Opent de command-palette" },
@@ -35,6 +36,11 @@ export const SHORTCUT_ACTIONS: { id: ShortcutAction; label: string; hint: string
   { id: "toggleSidebar", label: "Zijbalk in/uitklappen", hint: "Meer ruimte voor je canvas" },
   { id: "settings", label: "Instellingen", hint: "Wisselt tussen canvas en instellingen" },
   { id: "exportProject", label: "Exporteer project", hint: "Markdown van het actieve project" },
+  {
+    id: "quickCapture",
+    label: "Snel vastleggen",
+    hint: "Werkt overal, ook als Doova dicht staat. Vereist minstens één modifier.",
+  },
 ];
 
 export const DEFAULT_SHORTCUTS: Record<ShortcutAction, string> = {
@@ -43,6 +49,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, string> = {
   toggleSidebar: "mod+b",
   settings: "mod+,",
   exportProject: "mod+shift+e",
+  quickCapture: "mod+shift+ ",
 };
 
 export interface SettingsData {
@@ -221,6 +228,8 @@ export interface ProjectTab {
   folderId?: string | null;
   /** pinned projects sit in their own section at the top of the sidebar */
   pinned?: boolean;
+  /** where quick capture drops its notes; a flag, not a name, so renaming is safe */
+  inbox?: boolean;
 }
 
 export interface AppData {

@@ -12,6 +12,7 @@ import { runExportFull } from "./lib/exportActions";
 import { startBackupSchedule } from "./lib/backup";
 import { startUpdateWatch } from "./lib/updater";
 import { sweepUnusedImages } from "./lib/moodboard";
+import { syncCaptureHotkey } from "./lib/quickCapture";
 import { useFileDrop } from "./hooks/useFileDrop";
 import { Sidebar } from "./components/layout/Sidebar";
 import { CanvasBoard } from "./components/layout/CanvasBoard";
@@ -24,6 +25,17 @@ export default function App() {
   const settingsLoaded = useSettingsStore((s) => s.loaded);
   const activeView = useUiStore((s) => s.activeView);
   const hoverBlockId = useFileDrop();
+
+  // Registered by macOS rather than the webview, so it has to be handed to Rust
+  // on load and on every change instead of living in the keydown chain.
+  const captureBinding = useSettingsStore((s) => s.shortcuts.quickCapture);
+  const settingsReady = useSettingsStore((s) => s.loaded);
+  useEffect(() => {
+    if (!settingsReady) return;
+    void syncCaptureHotkey(captureBinding).then((error) => {
+      if (error) useUiStore.getState().showToast(error, undefined, undefined, { persist: true });
+    });
+  }, [captureBinding, settingsReady]);
 
   useEffect(() => {
     void useSettingsStore.getState().load();
@@ -85,6 +97,15 @@ export default function App() {
         window.removeEventListener("keydown", onKey);
         stopUpdateWatch();
       };
+    // Quick capture lives in its own window with no disk access, so it hands
+    // the text over and this window, the only writer, files it away.
+    const unlistenCapture = listen<{ text: string }>("quick-capture", (event) => {
+      const text = event.payload?.text ?? "";
+      if (!text.trim()) return;
+      useProjectsStore.getState().addToInbox(text);
+      useUiStore.getState().showToast("Toegevoegd aan Inbox");
+    });
+
     const win = getCurrentWindow();
     const unlistenClose = win.onCloseRequested(async () => {
       await flushAll();
@@ -100,6 +121,7 @@ export default function App() {
     return () => {
       window.removeEventListener("keydown", onKey);
       stopUpdateWatch();
+      void unlistenCapture.then((fn) => fn());
       void unlistenClose.then((fn) => fn());
       void unlistenExit.then((fn) => fn());
     };
