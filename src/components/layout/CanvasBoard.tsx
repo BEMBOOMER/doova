@@ -6,6 +6,10 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CanvasBlock } from "../blocks/CanvasBlock";
 
+/** Roughly the menu's own size, used only to decide whether it fits above. */
+const MENU_WIDTH = 190;
+const MENU_HEIGHT = 140;
+
 /**
  * Highlighted frame around an expanded group with a pill on top, or a chip
  * that replaces a collapsed one. Dragging the pill/chip moves the whole group.
@@ -22,7 +26,11 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(group.name);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  // anchored to the pill rather than the cursor: opening downwards buried the
+  // menu under the group's own blocks, which is exactly what you want to see
+  const [menuPos, setMenuPos] = useState<
+    { x: number; above: number } | { x: number; below: number } | null
+  >(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // drag the whole group by its pill/chip: members move live via the DOM,
@@ -124,7 +132,13 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
       <div
         ref={menuRef}
         className="panel pop-in fixed z-[80] p-1.5"
-        style={{ left: menuPos.x, top: menuPos.y, width: 190 }}
+        style={{
+          left: menuPos.x,
+          ...("above" in menuPos
+            ? { bottom: menuPos.above }
+            : { top: menuPos.below }),
+          width: MENU_WIDTH,
+        }}
         // the portal is a React child of the pill, so without this, clicks on
         // menu items bubble into the pill's drag/toggle handlers
         onPointerDown={(e) => e.stopPropagation()}
@@ -174,7 +188,14 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
     onContextMenu: (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setMenuPos({ x: e.clientX, y: e.clientY });
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = Math.min(Math.max(rect.left, 8), window.innerWidth - MENU_WIDTH - 8);
+      // near the top of the window there is no room above, so it flips back down
+      setMenuPos(
+        rect.top > MENU_HEIGHT + 16
+          ? { x, above: window.innerHeight - rect.top + 8 }
+          : { x, below: rect.bottom + 8 },
+      );
     },
   };
 
