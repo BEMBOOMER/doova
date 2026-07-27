@@ -236,7 +236,6 @@ pub fn speech_stop(app: AppHandle) {
     }
     emit_state(&app, "stopping");
 
-    let app_for_main = app.clone();
     let _ = app.run_on_main_thread(move || {
         SESSION.with(|cell| {
             if let Some(session) = cell.borrow().as_ref() {
@@ -248,7 +247,6 @@ pub fn speech_stop(app: AppHandle) {
                 }
             }
         });
-        let _ = &app_for_main;
     });
 
     // Safety net: without a final result nothing else would ever release the
@@ -315,7 +313,14 @@ fn start_on_main(app: &AppHandle, locale_id: &str) {
 
     unsafe { engine.prepare() };
     if let Err(err) = unsafe { engine.startAndReturnError() } {
-        unsafe { input_node.removeTapOnBus(BUS) };
+        // The task from build_segment is already live and would report its own
+        // failure on top of this one, so retire its generation before speaking.
+        GENERATION.fetch_add(1, Ordering::SeqCst);
+        unsafe {
+            input_node.removeTapOnBus(BUS);
+            segment.request.endAudio();
+            segment.task.cancel();
+        }
         emit_error(app, "audio", err.localizedDescription().to_string());
         return;
     }
