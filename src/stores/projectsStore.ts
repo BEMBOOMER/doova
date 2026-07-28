@@ -7,6 +7,7 @@ import type {
   BlockLayout,
   CalendarEvent,
   ChecklistItem,
+  Connection,
   FileOrganizerItem,
   LinkMeta,
   MoodboardImage,
@@ -224,6 +225,12 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
     );
     const groups = Array.isArray(tab.groups) ? tab.groups : [];
     const validGroupIds = new Set(groups.map((g) => g.id));
+    // A line to a block that no longer exists cannot be drawn or removed, so it
+    // is dropped rather than left to render as nothing.
+    const blockIds = new Set(blocks.map((b) => b.id));
+    const connections = (Array.isArray(tab.connections) ? tab.connections : []).filter(
+      (c) => blockIds.has(c.fromBlockId) && blockIds.has(c.toBlockId),
+    );
     return {
       ...tab,
       pinned: tab.pinned === true,
@@ -232,6 +239,7 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
         b.groupId && !validGroupIds.has(b.groupId) ? { ...b, groupId: null } : b,
       ),
       groups,
+      connections,
     };
   });
 }
@@ -269,8 +277,9 @@ interface ProjectsState {
   /** Drops a whole template in at once, as one entry rather than a dozen. */
   addBlocks: (blocks: NewBlock[], at?: { x: number; y: number }) => void;
   addCalendarBlock: (at?: { x: number; y: number }) => void;
-  removeBlock: (blockId: string) => void;
-  restoreBlock: (tabId: string, block: Block) => void;
+  /** Returns the lines it had to cut, so undoing the delete can restore them. */
+  removeBlock: (blockId: string) => Connection[];
+  restoreBlock: (tabId: string, block: Block, connections?: Connection[]) => void;
   renameBlock: (blockId: string, title: string) => void;
   duplicateBlock: (blockId: string) => void;
   setBlockColor: (blockId: string, color: string | null) => void;
@@ -304,6 +313,10 @@ interface ProjectsState {
   removeEvent: (blockId: string, eventId: string) => void;
 
   /** puts both blocks in a collapsible canvas group */
+  addConnection: (fromBlockId: string, toBlockId: string) => void;
+  removeConnection: (connectionId: string) => void;
+  setConnectionColor: (connectionId: string, color: string | null) => void;
+
   groupBlocks: (aId: string, bId: string) => void;
   toggleBlockGroup: (groupId: string) => void;
   /** drags the whole group: offsets every member (and the chip position) */
@@ -660,31 +673,55 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   },
 
   removeBlock: (blockId) => {
+    const tab = get().tabs.find((t) => t.id === get().activeTabId);
+    const cut = (tab?.connections ?? []).filter(
+      (c) => c.fromBlockId === blockId || c.toBlockId === blockId,
+    );
     set((s) => ({
       tabs: withTab(s.tabs, s.activeTabId, (t) =>
-        pruneGroups({ ...t, blocks: t.blocks.filter((b) => b.id !== blockId) }),
+        pruneGroups({
+          ...t,
+          blocks: t.blocks.filter((b) => b.id !== blockId),
+          connections: (t.connections ?? []).filter(
+            (c) => c.fromBlockId !== blockId && c.toBlockId !== blockId,
+          ),
+        }),
       ),
     }));
     persist(get());
+    return cut;
   },
 
-  restoreBlock: (tabId, block) => {
+  restoreBlock: (tabId, block, connections = []) => {
     set((s) => {
       const target = s.tabs.some((t) => t.id === tabId)
         ? tabId
         : (s.activeTabId ?? s.tabs[0]?.id ?? null);
       if (!target) return s;
       return {
-        tabs: withTab(s.tabs, target, (t) => ({
-          ...t,
-          blocks: [
-            ...t.blocks,
-            // the block's group may have been pruned while it was removed
-            block.groupId && !(t.groups ?? []).some((g) => g.id === block.groupId)
-              ? { ...block, groupId: null }
-              : block,
-          ],
-        })),
+        tabs: withTab(s.tabs, target, (t) => {
+          const ids = new Set([...t.blocks.map((b) => b.id), block.id]);
+          return {
+            ...t,
+            blocks: [
+              ...t.blocks,
+              // the block's group may have been pruned while it was removed
+              block.groupId && !(t.groups ?? []).some((g) => g.id === block.groupId)
+                ? { ...block, groupId: null }
+                : block,
+            ],
+            // only the lines whose other end also survived the interval
+            connections: [
+              ...(t.connections ?? []),
+              ...connections.filter(
+                (c) =>
+                  ids.has(c.fromBlockId) &&
+                  ids.has(c.toBlockId) &&
+                  !(t.connections ?? []).some((existing) => existing.id === c.id),
+              ),
+            ],
+          };
+        }),
       };
     });
     persist(get());
@@ -1051,6 +1088,47 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
         b.type === "note" ? { ...b, files: (b.files ?? []).filter((f) => f.id !== itemId) } : b,
       ),
+    }));
+    persist(get());
+  },
+
+  addConnection: (fromBlockId, toBlockId) => {
+    if (fromBlockId === toBlockId) return;
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => {
+        const existing = t.connections ?? [];
+        // One line per pair, whichever way round it was drawn
+        const already = existing.some(
+          (c) =>
+            (c.fromBlockId === fromBlockId && c.toBlockId === toBlockId) ||
+            (c.fromBlockId === toBlockId && c.toBlockId === fromBlockId),
+        );
+        if (already) return t;
+        return {
+          ...t,
+          connections: [...existing, { id: newId(), fromBlockId, toBlockId, color: null, label: null }],
+        };
+      }),
+    }));
+    persist(get());
+  },
+
+  removeConnection: (connectionId) => {
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => ({
+        ...t,
+        connections: (t.connections ?? []).filter((c) => c.id !== connectionId),
+      })),
+    }));
+    persist(get());
+  },
+
+  setConnectionColor: (connectionId, color) => {
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => ({
+        ...t,
+        connections: (t.connections ?? []).map((c) => (c.id === connectionId ? { ...c, color } : c)),
+      })),
     }));
     persist(get());
   },

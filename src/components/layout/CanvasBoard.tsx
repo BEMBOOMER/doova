@@ -6,6 +6,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { registerViewport } from "../../lib/canvasView";
 import { TEMPLATES } from "../../lib/templates";
+import { ConnectionsLayer } from "./ConnectionsLayer";
 import { CanvasBlock } from "../blocks/CanvasBlock";
 
 /** Roughly the menu's own size, used only to decide whether it fits above. */
@@ -25,6 +26,7 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
     setGroupPosition,
     arrangeBlockGroup,
   } = useProjectsStore();
+  const setInteracting = useUiStore((s) => s.setInteracting);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(group.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,6 +57,9 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
           return el ? [{ el, left: m.layout.x, top: m.layout.y }] : [];
         });
     dragRef.current = { startX: e.clientX, startY: e.clientY, moved: false, els };
+    // marks the same flag react-moveable sets, so the connection lines know to
+    // follow the elements instead of the store while this drag runs
+    setInteracting(true);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -76,6 +81,7 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
     const d = dragRef.current;
     if (!d) return;
     dragRef.current = null;
+    setInteracting(false);
     setDragOffset({ x: 0, y: 0 });
     if (!d.moved) {
       toggleBlockGroup(group.id);
@@ -461,6 +467,12 @@ export function CanvasBoard() {
                     registerTarget={registerTarget}
                   />
                 ))}
+                <ConnectionsLayer
+                  connections={tab.connections ?? []}
+                  blocks={tab.blocks}
+                  width={width}
+                  height={height}
+                />
                 {groups.map((group) => {
                   const members = tab.blocks.filter((b) => b.groupId === group.id);
                   if (members.length === 0) return null;

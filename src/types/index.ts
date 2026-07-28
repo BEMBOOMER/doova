@@ -210,6 +210,15 @@ interface BaseBlock {
   groupId?: string | null;
 }
 
+/** A line drawn between two blocks, which follows them as they move. */
+export interface Connection {
+  id: string;
+  fromBlockId: string;
+  toBlockId: string;
+  color?: string | null;
+  label?: string | null;
+}
+
 /** Collapsible group of blocks on the canvas; x/y is where the chip sits while collapsed. */
 export interface BlockGroup {
   id: string;
@@ -283,6 +292,7 @@ export interface ProjectTab {
   name: string;
   blocks: Block[];
   groups?: BlockGroup[];
+  connections?: Connection[];
   createdAt: string;
   /** set when the project lives inside a sidebar folder */
   folderId?: string | null;
@@ -299,7 +309,7 @@ export interface AppData {
   activeTabId: string | null;
 }
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Marker used in task text to carry a due date through migration/export. */
 export const DUE_MARKER = "⏳";

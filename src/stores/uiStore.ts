@@ -37,6 +37,10 @@ interface UiState {
   revealBlockId: string | null;
   setRevealBlockId: (id: string | null) => void;
 
+  /** the connection line under selection, which Delete removes */
+  selectedConnectionId: string | null;
+  setSelectedConnectionId: (id: string | null) => void;
+
   toasts: Toast[];
   showToast: (
     message: string,
@@ -67,6 +71,9 @@ export const useUiStore = create<UiState>((set) => ({
 
   revealBlockId: null,
   setRevealBlockId: (revealBlockId) => set({ revealBlockId }),
+
+  selectedConnectionId: null,
+  setSelectedConnectionId: (selectedConnectionId) => set({ selectedConnectionId }),
 
   interacting: false,
   setInteracting: (interacting) => {

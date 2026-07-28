@@ -30,11 +30,20 @@ export function BlockContainer({
     setBlockColor,
     groupBlocks,
     removeBlockFromGroup,
+    addConnection,
+    removeConnection,
     tabs,
     activeTabId,
   } = useProjectsStore();
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const otherBlocks = activeTab?.blocks.filter((b) => b.id !== block.id) ?? [];
+  // lines already attached to this block, so the menu can offer to cut them
+  const attached = (activeTab?.connections ?? []).filter(
+    (c) => c.fromBlockId === block.id || c.toBlockId === block.id,
+  );
+  const connectedIds = new Set(
+    attached.map((c) => (c.fromBlockId === block.id ? c.toBlockId : c.fromBlockId)),
+  );
   const showToast = useUiStore((s) => s.showToast);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(block.title);
@@ -63,8 +72,10 @@ export function BlockContainer({
   };
 
   const remove = () => {
-    removeBlock(block.id);
-    showToast(`"${block.title}" verwijderd`, "Herstel", () => restoreBlock(tabId, block));
+    const cutLines = removeBlock(block.id);
+    showToast(`"${block.title}" verwijderd`, "Herstel", () =>
+      restoreBlock(tabId, block, cutLines),
+    );
   };
 
   const openMenuAt = (x: number, y: number) => {
@@ -183,6 +194,31 @@ export function BlockContainer({
             )}
             {otherBlocks.length > 0 && (
               <>
+                <p className="mb-0.5 mt-1.5 px-2 text-[11px] text-ink-soft">Verbind met…</p>
+                <div className="max-h-32 overflow-y-auto">
+                  {otherBlocks.map((b) => {
+                    const linked = connectedIds.has(b.id);
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => {
+                          if (linked) {
+                            const line = attached.find(
+                              (c) => c.fromBlockId === b.id || c.toBlockId === b.id,
+                            );
+                            if (line) removeConnection(line.id);
+                          } else {
+                            addConnection(block.id, b.id);
+                          }
+                          setMenuPos(null);
+                        }}
+                        className="w-full truncate rounded-themed-sm px-2 py-1 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+                      >
+                        {linked ? "✓" : "↔"} {b.title}
+                      </button>
+                    );
+                  })}
+                </div>
                 <p className="mb-0.5 mt-1.5 px-2 text-[11px] text-ink-soft">Koppel met…</p>
                 <div className="max-h-32 overflow-y-auto">
                   {otherBlocks.map((b) => (
