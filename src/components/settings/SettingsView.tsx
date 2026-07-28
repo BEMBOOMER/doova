@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { appDataDir } from "@tauri-apps/api/path";
 import { getVersion } from "@tauri-apps/api/app";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useProjectsStore } from "../../stores/projectsStore";
@@ -18,6 +17,12 @@ import { bindingFromEvent, formatBinding, isCompleteBinding } from "../../lib/sh
 import { listBackups, makeBackup, restoreBackup } from "../../lib/backup";
 import { runExportDigest, runExportFull } from "../../lib/exportActions";
 import { checkForUpdate } from "../../lib/updater";
+import {
+  chooseNewLocation,
+  currentLocation,
+  isDefaultLocation,
+  resetToDefaultLocation,
+} from "../../lib/dataLocation";
 import { isTauri } from "../../lib/ids";
 
 const THEMES: { id: ThemeName; label: string; hint: string }[] = [
@@ -257,9 +262,13 @@ export function SettingsView() {
   const [backups, setBackups] = useState<string[]>([]);
   const [category, setCategory] = useState<CategoryId>("weergave");
   const [version, setVersion] = useState("");
+  const [dataPath, setDataPath] = useState<string | null>(null);
+  const [defaultLocation, setDefaultLocation] = useState(true);
 
   useEffect(() => {
     if (isTauri()) void getVersion().then(setVersion).catch(() => {});
+    void currentLocation().then(setDataPath);
+    void isDefaultLocation().then(setDefaultLocation);
   }, []);
 
   const refreshBackups = () => void listBackups().then(setBackups);
@@ -424,8 +433,8 @@ export function SettingsView() {
                 <ActionButton onClick={() => activeTab && void runExportDigest(activeTab)} disabled={!activeTab}>
                   ⬇ Exporteer digest (open taken + deadlines)
                 </ActionButton>
-                {isTauri() && (
-                  <ActionButton onClick={() => void appDataDir().then((p) => openPath(p))}>
+                {isTauri() && dataPath && (
+                  <ActionButton onClick={() => void openPath(dataPath)}>
                     📂 Open data-map in Finder
                   </ActionButton>
                 )}
@@ -435,6 +444,43 @@ export function SettingsView() {
                   ⛃ Maak nu een backup
                 </ActionButton>
               </div>
+              {isTauri() && (
+                <>
+                  <p className="mb-1 mt-4 text-[12px] font-semibold text-ink-soft">Datamap</p>
+                  <p className="mb-2 break-all rounded-themed-sm bg-surface-raised p-2 text-[11.5px] text-ink-soft">
+                    {dataPath ?? "…"}
+                  </p>
+                  <div className="mb-4 flex flex-col gap-1.5">
+                    <ActionButton
+                      onClick={() =>
+                        void chooseNewLocation().then((error) => {
+                          if (error) showToast(error, undefined, undefined, { persist: true });
+                        })
+                      }
+                    >
+                      ⇄ Verplaats naar een andere map…
+                    </ActionButton>
+                    {!defaultLocation && (
+                      <ActionButton
+                        onClick={() =>
+                          void resetToDefaultLocation().then((error) => {
+                            if (error) showToast(error, undefined, undefined, { persist: true });
+                          })
+                        }
+                      >
+                        ↩ Zet terug naar de standaardmap
+                      </ActionButton>
+                    )}
+                  </div>
+                  <p className="mb-4 rounded-themed-sm bg-surface-raised p-3 text-[12px] leading-relaxed text-ink-soft">
+                    Zet je datamap in iCloud Drive en je hebt synchronisatie zonder dat Doova
+                    daar iets voor hoeft te doen. Houd er wel rekening mee dat de laatste die
+                    opslaat wint: open Doova niet op twee Macs tegelijk. Je backups verhuizen
+                    mee. Doova kopieert eerst alles en schakelt pas daarna om, dus als er
+                    onderweg iets misgaat blijft je oude map onaangeroerd staan.
+                  </p>
+                </>
+              )}
               <p className="mb-1.5 text-[12px] font-semibold text-ink-soft">
                 Backups · automatisch elke 30 minuten, maximaal 20 bewaard
               </p>

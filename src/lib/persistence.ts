@@ -1,34 +1,19 @@
-import {
-  BaseDirectory,
-  exists,
-  mkdir,
-  readTextFile,
-  writeTextFile,
-  copyFile,
-  rename,
-} from "@tauri-apps/plugin-fs";
-
-const DIR = { baseDir: BaseDirectory.AppData };
-
-async function ensureDir() {
-  if (!(await exists("", DIR))) {
-    await mkdir("", { ...DIR, recursive: true });
-  }
-}
+import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "./ids";
 
 /**
- * Atomic write: write to <file>.tmp, keep one rolling backup, then rename over
- * the real file so a crash mid-write never leaves a half-written data file.
+ * Reading and writing Doova's own files.
+ *
+ * The bytes are handled by Rust, which owns the data folder and is the only
+ * thing that knows where it currently is. Keeping one authority over the
+ * location matters now that the folder can move: a path held over here too
+ * would be a second answer, and the moment the two disagreed a save would land
+ * where nobody looks. It also means the webview needs no filesystem access.
+ *
+ * The scheduling stays on this side, because it is about how the app behaves
+ * rather than about files: writes are debounced, serialised per file, and
+ * re-queued on failure instead of being dropped.
  */
-async function writeAtomic(file: string, contents: string) {
-  await ensureDir();
-  const tmp = `${file}.tmp`;
-  await writeTextFile(tmp, contents, DIR);
-  if (await exists(file, DIR)) {
-    await copyFile(file, `${file}.bak`, { fromPathBaseDir: DIR.baseDir, toPathBaseDir: DIR.baseDir });
-  }
-  await rename(tmp, file, { oldPathBaseDir: DIR.baseDir, newPathBaseDir: DIR.baseDir });
-}
 
 /**
  * "missing" (first run) and "error" (file there but unreadable) are distinct:
@@ -41,22 +26,22 @@ export type LoadResult<T> =
   | { status: "error" };
 
 export async function loadJson<T>(file: string): Promise<LoadResult<T>> {
+  if (!isTauri()) return { status: "error" };
+
   let primaryMissing = false;
   try {
-    if (!(await exists(file, DIR))) {
-      primaryMissing = true;
-    } else {
-      return { status: "ok", data: JSON.parse(await readTextFile(file, DIR)) as T };
-    }
+    const text = await invoke<string | null>("store_read", { name: file });
+    if (text === null) primaryMissing = true;
+    else return { status: "ok", data: JSON.parse(text) as T };
   } catch (err) {
     console.error(`Failed to load ${file}, trying backup`, err);
   }
+
   try {
-    if (await exists(`${file}.bak`, DIR)) {
-      return { status: "ok", data: JSON.parse(await readTextFile(`${file}.bak`, DIR)) as T };
-    }
-  } catch (bakErr) {
-    console.error(`Backup of ${file} also unreadable`, bakErr);
+    const backup = await invoke<string | null>("store_read_backup", { name: file });
+    if (backup !== null) return { status: "ok", data: JSON.parse(backup) as T };
+  } catch (err) {
+    console.error(`Backup of ${file} also unreadable`, err);
     return { status: "error" };
   }
   return primaryMissing ? { status: "missing" } : { status: "error" };
@@ -64,7 +49,7 @@ export async function loadJson<T>(file: string): Promise<LoadResult<T>> {
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const pending = new Map<string, string>();
-// per-file promise chain: serializes writes so two saves never share a .tmp
+// per-file promise chain: serialises writes so two saves never overlap
 const chains = new Map<string, Promise<void>>();
 
 export function saveJsonDebounced(file: string, data: unknown, delay = 700) {
@@ -86,7 +71,7 @@ function flushFile(file: string): Promise<void> {
   timers.delete(file);
   const next = (chains.get(file) ?? Promise.resolve()).then(async () => {
     try {
-      await writeAtomic(file, contents);
+      if (isTauri()) await invoke("store_write", { name: file, contents });
     } catch (err) {
       console.error(`Failed to save ${file}, re-queueing`, err);
       // keep the newest payload around for the next flush attempt

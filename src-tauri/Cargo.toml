@@ -1,6 +1,6 @@
 [package]
 name = "doova"
-version = "0.5.2"
+version = "1.0.0"
 description = "Persoonlijke productiviteits-app voor macOS: tabs, to-do's, notities en bestanden"
 authors = ["Roelof Junior Haar <bemboe09@gmail.com>"]
 license = "MIT"
@@ -29,6 +29,8 @@ tauri-plugin-window-state = "2.4.1"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-global-shortcut = "2"
+# one Doova at a time: two instances would share one data.json
+tauri-plugin-single-instance = "2"
 base64 = "0.22"
 # already in the tree via the updater plugin, so this adds no build time
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "charset", "system-proxy"] }

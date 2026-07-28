@@ -1,20 +1,17 @@
-import {
-  BaseDirectory,
-  copyFile,
-  exists,
-  mkdir,
-  readDir,
-  readTextFile,
-  remove,
-  writeTextFile,
-} from "@tauri-apps/plugin-fs";
+import { invoke } from "@tauri-apps/api/core";
 import { DATA_FILE } from "./persistence";
+import { isTauri } from "./ids";
 
-const DIR = { baseDir: BaseDirectory.AppData };
-const BACKUP_DIR = "backups";
-const KEEP = 20;
+/**
+ * Timestamped copies of data.json, kept beside it so they travel with the data
+ * when the folder moves. Rust does the copying and the pruning, for the same
+ * reason it does the writing: it is the only thing that knows where the folder
+ * currently is.
+ */
+
 const INTERVAL_MS = 30 * 60 * 1000;
 
+/** Minute resolution: more often than that is not a different state. */
 function stamp(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -22,35 +19,19 @@ function stamp(): string {
 }
 
 export async function makeBackup(): Promise<void> {
+  if (!isTauri()) return;
   try {
-    if (!(await exists(DATA_FILE, DIR))) return;
-    if (!(await exists(BACKUP_DIR, DIR))) await mkdir(BACKUP_DIR, { ...DIR, recursive: true });
-    const name = `${BACKUP_DIR}/data-${stamp()}.json`;
-    if (await exists(name, DIR)) return; // one per minute is plenty
-    await copyFile(DATA_FILE, name, { fromPathBaseDir: DIR.baseDir, toPathBaseDir: DIR.baseDir });
-    await prune();
+    await invoke<boolean>("store_backup", { name: DATA_FILE, stamp: stamp() });
   } catch (err) {
     console.error("backup failed", err);
   }
 }
 
-async function prune() {
-  const all = await listBackups();
-  for (const name of all.slice(KEEP)) {
-    await remove(`${BACKUP_DIR}/${name}`, DIR);
-  }
-}
-
 /** Backup file names, newest first. */
 export async function listBackups(): Promise<string[]> {
+  if (!isTauri()) return [];
   try {
-    if (!(await exists(BACKUP_DIR, DIR))) return [];
-    const entries = await readDir(BACKUP_DIR, DIR);
-    return entries
-      .filter((e) => e.isFile && e.name.startsWith("data-") && e.name.endsWith(".json"))
-      .map((e) => e.name)
-      .sort()
-      .reverse();
+    return await invoke<string[]>("store_list_backups");
   } catch {
     return [];
   }
@@ -58,10 +39,12 @@ export async function listBackups(): Promise<string[]> {
 
 /** Restores a backup over data.json (validates JSON first). Reload after. */
 export async function restoreBackup(name: string): Promise<boolean> {
+  if (!isTauri()) return false;
   try {
-    const raw = await readTextFile(`${BACKUP_DIR}/${name}`, DIR);
-    JSON.parse(raw); // must be valid
-    await writeTextFile(DATA_FILE, raw, DIR);
+    const raw = await invoke<string | null>("store_read", { name: `backups/${name}` });
+    if (raw === null) return false;
+    JSON.parse(raw); // must be valid before it replaces anything
+    await invoke("store_write", { name: DATA_FILE, contents: raw });
     return true;
   } catch (err) {
     console.error("restore failed", err);

@@ -9,16 +9,16 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
+
+use crate::datastore;
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
+/// Images and favicons travel with the data, so they hang off the same movable
+/// folder rather than the app-data one.
 pub fn subdir(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|err| format!("Kon de datamap niet vinden: {err}"))?
-        .join(name);
+    let dir = datastore::dir(app)?.join(name);
     std::fs::create_dir_all(&dir).map_err(|err| format!("Kon de map niet maken: {err}"))?;
     Ok(dir)
 }

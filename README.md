@@ -7,6 +7,12 @@ Persoonlijke productiviteits-app voor macOS. Projecten als tabs, met blokken voo
 - **Dicteren** — klik het microfoontje in een notitie en je spraak wordt tekst, in het Nederlands of Engels. Draait volledig op je eigen Mac via de Speech-functie van macOS, dus er gaat geen audio het internet op.
 - **Moodboards** — sleep afbeeldingen in een moodboard of plak ze met cmd+V. Ze worden gekopieerd naar Doova, dus je board blijft heel als je het origineel opruimt.
 - **Exporteren** — rechtsklik op een blok voor een PDF of Word-bestand, met opmaak, checklists en beelden erin. Het omzetten doet macOS zelf.
+- **Snel vastleggen** — een menubalk-icoontje en een systeembrede sneltoets openen een veldje over wat je ook aan het doen bent; wat je typt of inspreekt landt in je Inbox.
+- **Plakken** — een link wordt een linkblok met titel en icoon, een beeld een moodboard, tekst een notitie.
+- **Verbindingslijnen** — trek lijnen tussen blokken die meebewegen als je sleept.
+- **Zoomen** — cmd+scroll, of klik het percentage linksonder om alles in beeld te halen.
+- **Ongedaan maken** — cmd+Z over alles heen, met je eigen tekst-undo binnen een notitie.
+- **Eigen datamap** — zet je data in iCloud Drive en je hebt synchronisatie zonder dat Doova daar iets voor hoeft te doen.
 - **Bestanden** — sleep bestanden of mappen uit Finder erin; klik om ze direct weer in Finder te tonen
 - **Thema's** — Glass (licht, doorschijnend, Apple-stijl) of bemboe (neo-brutalism), plus 8 accentkleuren
 - Alles wordt lokaal opgeslagen, geen account of cloud

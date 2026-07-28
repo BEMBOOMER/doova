@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 mod appdirs;
+mod datastore;
 #[cfg(target_os = "macos")]
 mod capture;
 #[cfg(target_os = "macos")]
@@ -20,6 +21,15 @@ static EXIT_FLUSH_STARTED: AtomicBool = AtomicBool::new(false);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        // Must be first, per the plugin's own requirement. A second launch hands
+        // its arguments to the running app and exits, rather than opening a
+        // window that writes to the same data.json from the other side.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(main) = app.get_webview_window("main") {
+                let _ = main.show();
+                let _ = main.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -39,6 +49,11 @@ pub fn run() {
         .manage(capture::Hotkey(Mutex::new(None)))
         .setup(|app| {
             let handle = app.handle().clone();
+            // Before anything reads or writes: everything else asks this for the
+            // folder, so it has to be resolved first.
+            app.manage(datastore::DataDir(std::sync::RwLock::new(
+                datastore::resolve_at_startup(&handle),
+            )));
             capture::register_initial(&handle);
             if let Err(err) = capture::build_tray(&handle) {
                 eprintln!("tray failed to build: {err}");
@@ -72,6 +87,14 @@ pub fn run() {
             speech::speech_start,
             speech::speech_stop,
             docexport::export_document,
+            datastore::store_read,
+            datastore::store_write,
+            datastore::store_read_backup,
+            datastore::store_backup,
+            datastore::store_list_backups,
+            datastore::store_location,
+            datastore::store_is_default,
+            datastore::store_move,
             capture::set_capture_hotkey,
             capture::capture_hide,
         ]);
