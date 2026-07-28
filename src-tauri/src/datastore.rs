@@ -21,6 +21,12 @@ use tauri::{AppHandle, Manager};
 /// they describe this Mac, not the documents.
 const POINTER_FILE: &str = "location.json";
 const BACKUP_DIR: &str = "backups";
+
+/// Files that describe this Mac rather than your work: window state, theme,
+/// shortcuts. They stay in the app-data folder when the documents move, because
+/// a second Mac wants its own, and because a move that silently reset every
+/// preference would be a poor reward for tidying up your folders.
+const PREFERENCE_FILES: &[&str] = &["settings.json"];
 const KEEP_BACKUPS: usize = 20;
 
 #[derive(Serialize, Deserialize, Default)]
@@ -72,7 +78,11 @@ fn resolve(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
     if clean.is_empty() || clean.contains('/') || clean.contains('\\') || clean.contains("..") {
         return Err("Ongeldige bestandsnaam.".into());
     }
-    let base = dir(app)?;
+    let base = if PREFERENCE_FILES.contains(&clean) {
+        app_data(app)?
+    } else {
+        dir(app)?
+    };
     if name.starts_with("backups/") {
         let backups = base.join(BACKUP_DIR);
         std::fs::create_dir_all(&backups).map_err(|err| format!("Kon de map niet maken: {err}"))?;
@@ -300,6 +310,15 @@ mod tests {
         // silent fresh start in the app-data folder.
         let gone = PathBuf::from("/Volumes/DezeSchijfBestaatNiet/doova");
         assert!(!gone.is_dir());
+    }
+
+    #[test]
+    fn preferences_are_recognised_and_documents_are_not() {
+        // Routed to app data rather than the movable folder, so moving your
+        // documents does not silently reset every setting you ever changed.
+        assert!(PREFERENCE_FILES.contains(&"settings.json"));
+        assert!(!PREFERENCE_FILES.contains(&"data.json"));
+        assert!(!PREFERENCE_FILES.contains(&"data.json.bak"));
     }
 
     #[test]
