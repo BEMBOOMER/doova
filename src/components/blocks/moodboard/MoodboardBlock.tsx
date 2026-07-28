@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { MoodboardBlockData, MoodboardImage } from "../../../types";
 import { useProjectsStore } from "../../../stores/projectsStore";
-import { useUiStore } from "../../../stores/uiStore";
-import { imageUrl, importImageBlobs } from "../../../lib/moodboard";
-import { isTauri } from "../../../lib/ids";
+import { imageUrl } from "../../../lib/moodboard";
 
 /** Resolves asset URLs for the whole board in one pass, so a re-render does not
  *  restart every image request. */
@@ -74,34 +72,10 @@ function Tile({
 }
 
 export function MoodboardBlock({ block }: { block: MoodboardBlockData }) {
-  const addMoodboardImages = useProjectsStore((s) => s.addMoodboardImages);
   const removeMoodboardImage = useProjectsStore((s) => s.removeMoodboardImage);
-  const showToast = useUiStore((s) => s.showToast);
   const urls = useImageUrls(block.images);
   const [lightbox, setLightbox] = useState<MoodboardImage | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-
-  // Paste only counts while the pointer is over this board, or every open
-  // moodboard would swallow the same image.
-  useEffect(() => {
-    if (!isTauri()) return;
-    const onPaste = (e: ClipboardEvent) => {
-      if (!rootRef.current?.matches(":hover")) return;
-      const files = [...(e.clipboardData?.files ?? [])];
-      if (files.length === 0) return;
-      e.preventDefault();
-      void importImageBlobs(files).then((images) => {
-        if (images.length === 0) {
-          showToast("Op het klembord staat geen afbeelding");
-          return;
-        }
-        addMoodboardImages(block.id, images);
-        showToast(images.length === 1 ? "Beeld geplakt" : `${images.length} beelden geplakt`);
-      });
-    };
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, [addMoodboardImages, block.id, showToast]);
 
   useEffect(() => {
     if (!lightbox) return;

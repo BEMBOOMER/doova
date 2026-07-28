@@ -30,6 +30,8 @@ tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-global-shortcut = "2"
 base64 = "0.22"
+# already in the tree via the updater plugin, so this adds no build time
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "charset", "system-proxy"] }
 
 # On-device dictation through Apple's Speech framework (see src/speech.rs).
 [target.'cfg(target_os = "macos")'.dependencies]

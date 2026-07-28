@@ -4,14 +4,12 @@ import type { ProjectTab } from "../types";
 import { exportProjectDigest, exportProjectMarkdown } from "./exportMarkdown";
 import { useUiStore } from "../stores/uiStore";
 import { isTauri } from "./ids";
+import { copyText } from "./clipboard";
 
 async function deliver(markdown: string, suggestedName: string) {
   const { showToast } = useUiStore.getState();
-  try {
-    await navigator.clipboard.writeText(markdown);
-  } catch {
-    // clipboard can fail outside user gesture; save dialog still offered
-  }
+  // clipboard can fail outside a user gesture; the save dialog is still offered
+  await copyText(markdown);
   if (!isTauri()) {
     showToast("Gekopieerd naar klembord");
     return;

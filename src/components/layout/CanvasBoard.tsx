@@ -4,6 +4,7 @@ import type { Block, BlockGroup } from "../../types";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
+import { registerViewport } from "../../lib/canvasView";
 import { CanvasBlock } from "../blocks/CanvasBlock";
 
 /** Roughly the menu's own size, used only to decide whether it fits above. */
@@ -273,8 +274,14 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
 const CANVAS_MARGIN = 220;
 
 export function CanvasBoard() {
-  const { tabs, activeTabId, addBlock, addCalendarBlock, promoteBlockToMoodboard } =
-    useProjectsStore();
+  const {
+    tabs,
+    activeTabId,
+    addBlock,
+    addCalendarBlock,
+    promoteBlockToMoodboard,
+    promoteBlockToSwatch,
+  } = useProjectsStore();
   const setSelectedBlockId = useUiStore((s) => s.setSelectedBlockId);
   const tab = tabs.find((t) => t.id === activeTabId);
 
@@ -300,6 +307,12 @@ export function CanvasBoard() {
   // the canvas is never smaller than what you can see, so an empty project
   // has nothing to scroll into
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
+
+  // lets code outside this component place a block where you are looking
+  useEffect(() => {
+    registerViewport(viewportRef.current);
+    return () => registerViewport(null);
+  });
 
   useEffect(() => {
     const vp = viewportRef.current;
@@ -496,6 +509,16 @@ export function CanvasBoard() {
               className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
             >
               ▦ Moodboard hier
+            </button>
+            <button
+              onClick={() => {
+                const id = addBlock({ x: ctxMenu.canvasX, y: ctxMenu.canvasY });
+                promoteBlockToSwatch(id, []);
+                setCtxMenu(null);
+              }}
+              className="w-full rounded-themed-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+            >
+              ◧ Kleuren hier
             </button>
           </div>,
           document.body,

@@ -8,8 +8,10 @@ import type {
   CalendarEvent,
   ChecklistItem,
   FileOrganizerItem,
+  LinkMeta,
   MoodboardImage,
   NoteBlockData,
+  Swatch,
   ProjectFolder,
   ProjectTab,
 } from "../types";
@@ -17,7 +19,8 @@ import {
   CANVAS_PAD,
   DEFAULT_BLOCK_SIZE,
   DUE_MARKER,
-  MIN_BLOCK_SIZE,
+  defaultSizeFor,
+  minSizeFor,
   SCHEMA_VERSION,
 } from "../types";
 import { newId, nowIso } from "../lib/ids";
@@ -78,6 +81,15 @@ function firstLine(text: string): string {
   const line = text.split("\n").find((l) => l.trim()) ?? "";
   const trimmed = line.trim();
   return trimmed.length > 42 ? `${trimmed.slice(0, 41)}…` : trimmed || "Losse gedachte";
+}
+
+/** Hostname without www, the best title available before the page answers. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
 }
 
 /** "Blok 1", "Blok 2", ... skipping numbers already in use */
@@ -148,6 +160,9 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
           layout?: BlockLayout;
           items?: unknown;
           events?: unknown;
+          images?: unknown;
+          url?: unknown;
+          swatches?: unknown;
         };
         let block: Block;
         if (legacy.type === "checklist") {
@@ -166,6 +181,28 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
           block = { ...(raw as Block), items: Array.isArray(legacy.items) ? legacy.items : [] } as Block;
         } else if (legacy.type === "calendar") {
           block = { ...(raw as Block), events: Array.isArray(legacy.events) ? legacy.events : [] } as Block;
+        } else if (legacy.type === "moodboard") {
+          block = { ...(raw as Block), images: Array.isArray(legacy.images) ? legacy.images : [] } as Block;
+        } else if (legacy.type === "link") {
+          // A link block without a url has nothing left to be; it degrades to a
+          // note rather than rendering as a dead tile you cannot fix.
+          block =
+            typeof legacy.url === "string" && legacy.url
+              ? ({ ...(raw as Block) } as Block)
+              : ({
+                  id: legacy.id,
+                  type: "note",
+                  title: legacy.title,
+                  createdAt: legacy.createdAt,
+                  content: null,
+                  layout: legacy.layout as BlockLayout,
+                  color: legacy.color ?? null,
+                } as Block);
+        } else if (legacy.type === "swatch") {
+          block = {
+            ...(raw as Block),
+            swatches: Array.isArray(legacy.swatches) ? legacy.swatches : [],
+          } as Block;
         } else {
           block = raw as Block;
         }
@@ -242,6 +279,12 @@ interface ProjectsState {
   setNoteContent: (blockId: string, content: JSONContent) => void;
   promoteBlockToFileOrganizer: (blockId: string, items: FileOrganizerItem[]) => void;
   promoteBlockToMoodboard: (blockId: string, images: MoodboardImage[]) => void;
+  promoteBlockToLink: (blockId: string, url: string) => void;
+  setLinkMeta: (blockId: string, meta: LinkMeta) => void;
+  promoteBlockToSwatch: (blockId: string, swatches: Swatch[]) => void;
+  addSwatch: (blockId: string, hex: string) => void;
+  updateSwatch: (blockId: string, swatchId: string, patch: Partial<Swatch>) => void;
+  removeSwatch: (blockId: string, swatchId: string) => void;
   addMoodboardImages: (blockId: string, images: MoodboardImage[]) => void;
   removeMoodboardImage: (blockId: string, imageId: string) => void;
   setMoodboardImages: (blockId: string, images: MoodboardImage[]) => void;
@@ -685,17 +728,20 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
 
   resizeBlock: (blockId, patch) => {
     set((s) => ({
-      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) => ({
-        ...b,
-        layout: {
-          ...b.layout,
-          ...patch,
-          x: Math.max(0, patch.x ?? b.layout.x),
-          y: Math.max(0, patch.y ?? b.layout.y),
-          width: Math.max(MIN_BLOCK_SIZE.width, patch.width ?? b.layout.width),
-          height: Math.max(MIN_BLOCK_SIZE.height, patch.height ?? b.layout.height),
-        },
-      })),
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) => {
+        const min = minSizeFor(b.type);
+        return {
+          ...b,
+          layout: {
+            ...b.layout,
+            ...patch,
+            x: Math.max(0, patch.x ?? b.layout.x),
+            y: Math.max(0, patch.y ?? b.layout.y),
+            width: Math.max(min.width, patch.width ?? b.layout.width),
+            height: Math.max(min.height, patch.height ?? b.layout.height),
+          },
+        };
+      }),
     }));
     persist(get());
   },
@@ -766,6 +812,100 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     set((s) => ({
       tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
         b.type === "moodboard" ? { ...b, images } : b,
+      ),
+    }));
+    persist(get());
+  },
+
+  promoteBlockToLink: (blockId, url) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) => {
+        if (b.type !== "note") return b;
+        const size = defaultSizeFor("link");
+        return {
+          id: b.id,
+          type: "link",
+          title: hostOf(url),
+          createdAt: b.createdAt,
+          layout: { ...b.layout, ...size },
+          color: b.color ?? null,
+          groupId: b.groupId ?? null,
+          url,
+        };
+      }),
+    }));
+    persist(get());
+  },
+
+  /** Arrives long after the block does, so it patches rather than replaces. */
+  setLinkMeta: (blockId, meta) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) => {
+        if (b.type !== "link") return b;
+        return {
+          ...b,
+          ...meta,
+          // A page title beats the hostname, but only if the user has not
+          // renamed the block in the meantime.
+          title: meta.linkTitle && b.title === hostOf(b.url) ? meta.linkTitle : b.title,
+          fetchedAt: nowIso(),
+        };
+      }),
+    }));
+    persist(get());
+  },
+
+  promoteBlockToSwatch: (blockId, swatches) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) => {
+        if (b.type !== "note") return b;
+        const size = defaultSizeFor("swatch");
+        return {
+          id: b.id,
+          type: "swatch",
+          title: b.title,
+          createdAt: b.createdAt,
+          layout: { ...b.layout, ...size },
+          color: b.color ?? null,
+          groupId: b.groupId ?? null,
+          swatches,
+        };
+      }),
+    }));
+    persist(get());
+  },
+
+  addSwatch: (blockId, hex) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
+        b.type === "swatch"
+          ? { ...b, swatches: [...b.swatches, { id: newId(), hex, name: null }] }
+          : b,
+      ),
+    }));
+    persist(get());
+  },
+
+  updateSwatch: (blockId, swatchId, patch) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
+        b.type === "swatch"
+          ? {
+              ...b,
+              swatches: b.swatches.map((sw) => (sw.id === swatchId ? { ...sw, ...patch } : sw)),
+            }
+          : b,
+      ),
+    }));
+    persist(get());
+  },
+
+  removeSwatch: (blockId, swatchId) => {
+    set((s) => ({
+      tabs: withBlock(s.tabs, s.activeTabId, blockId, (b) =>
+        b.type === "swatch"
+          ? { ...b, swatches: b.swatches.filter((sw) => sw.id !== swatchId) }
+          : b,
       ),
     }));
     persist(get());

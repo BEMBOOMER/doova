@@ -183,6 +183,24 @@ function bodyForBlock(block: Block, images: ImageData): string {
   }
   if (block.type === "file-organizer") return fileRows(block.items);
   if (block.type === "moodboard") return moodboardBody(block.images, images);
+  if (block.type === "link") {
+    return (
+      `<p><a href="${escapeHtml(block.url)}">${escapeHtml(block.linkTitle || block.url)}</a></p>` +
+      `<p class="path">${escapeHtml(block.url)}</p>`
+    );
+  }
+  if (block.type === "swatch") {
+    if (block.swatches.length === 0) return "<p><em>Nog geen kleuren</em></p>";
+    return block.swatches
+      .map(
+        (sw) =>
+          `<p><span style="background-color:${escapeHtml(sw.hex)}">&nbsp;&nbsp;&nbsp;&nbsp;</span>` +
+          `&nbsp;&nbsp;<strong>${escapeHtml(sw.hex.toUpperCase())}</strong>` +
+          (sw.name ? `&nbsp;&nbsp;${escapeHtml(sw.name)}` : "") +
+          `</p>`,
+      )
+      .join("");
+  }
 
   const events = [...block.events].sort((a, b) => a.date.localeCompare(b.date));
   if (events.length === 0) return "<p><em>Geen afspraken</em></p>";

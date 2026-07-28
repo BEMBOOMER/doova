@@ -2,11 +2,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+mod appdirs;
 #[cfg(target_os = "macos")]
 mod capture;
 #[cfg(target_os = "macos")]
 pub mod docexport;
 mod images;
+mod linkmeta;
 #[cfg(target_os = "macos")]
 mod speech;
 
@@ -62,6 +64,8 @@ pub fn run() {
             images::import_image_bytes,
             images::copy_stored_image,
             images::sweep_unused_images,
+            linkmeta::fetch_link_metadata,
+            linkmeta::sweep_unused_favicons,
             speech::speech_permissions,
             speech::speech_request_permissions,
             speech::speech_supported_locales,

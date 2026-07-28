@@ -76,6 +76,16 @@ function blockToMarkdown(block: Block): string {
     for (const it of block.items) {
       lines.push(`- ${it.missing ? "⚠ " : ""}${it.name}${it.ext ? ` (${it.ext})` : ""} — \`${it.path}\``);
     }
+  } else if (block.type === "link") {
+    lines.push(`[${block.linkTitle || block.url}](${block.url})`);
+  } else if (block.type === "swatch") {
+    if (block.swatches.length === 0) lines.push("_geen kleuren_");
+    for (const sw of block.swatches) {
+      lines.push(`- \`${sw.hex.toUpperCase()}\`${sw.name ? ` — ${sw.name}` : ""}`);
+    }
+  } else if (block.type === "moodboard") {
+    if (block.images.length === 0) lines.push("_geen afbeeldingen_");
+    for (const img of block.images) lines.push(`- ${img.name}`);
   } else if (block.type === "calendar") {
     const sorted = [...block.events].sort((a, b) => a.date.localeCompare(b.date));
     if (sorted.length === 0) lines.push("_geen events_");

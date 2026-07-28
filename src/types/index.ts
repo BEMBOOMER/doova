@@ -105,8 +105,30 @@ export interface BlockLayout {
   z: number;
 }
 
-export const DEFAULT_BLOCK_SIZE = { width: 300, height: 380 };
-export const MIN_BLOCK_SIZE = { width: 220, height: 140 };
+export interface BlockSize {
+  width: number;
+  height: number;
+}
+
+export const DEFAULT_BLOCK_SIZE: BlockSize = { width: 300, height: 380 };
+export const MIN_BLOCK_SIZE: BlockSize = { width: 220, height: 140 };
+
+/**
+ * A link or a colour is a line, not a page. One shared minimum would either
+ * leave those blocks with three empty rows or let a note be squashed to nothing.
+ */
+const SIZES: Partial<Record<BlockType, { min: BlockSize; default: BlockSize }>> = {
+  link: { min: { width: 200, height: 68 }, default: { width: 300, height: 88 } },
+  swatch: { min: { width: 170, height: 64 }, default: { width: 280, height: 96 } },
+};
+
+export function minSizeFor(type: BlockType): BlockSize {
+  return SIZES[type]?.min ?? MIN_BLOCK_SIZE;
+}
+
+export function defaultSizeFor(type: BlockType): BlockSize {
+  return SIZES[type]?.default ?? DEFAULT_BLOCK_SIZE;
+}
 /** leaves room for the block title that floats above each block */
 export const CANVAS_PAD = 40;
 
@@ -159,8 +181,24 @@ export interface MoodboardImage {
   height?: number;
 }
 
+// ---------- link ----------
+/** Metadata is filled in after the block exists, or never, when offline. */
+export interface LinkMeta {
+  linkTitle?: string | null;
+  /** filename inside the app's favicons folder */
+  favicon?: string | null;
+  fetchedAt?: string | null;
+}
+
+// ---------- swatch ----------
+export interface Swatch {
+  id: string;
+  hex: string;
+  name?: string | null;
+}
+
 // ---------- blocks ----------
-export type BlockType = "note" | "file-organizer" | "calendar" | "moodboard";
+export type BlockType = "note" | "file-organizer" | "calendar" | "moodboard" | "link" | "swatch";
 
 interface BaseBlock {
   id: string;
@@ -205,11 +243,23 @@ export interface MoodboardBlockData extends BaseBlock {
   images: MoodboardImage[];
 }
 
+export interface LinkBlockData extends BaseBlock, LinkMeta {
+  type: "link";
+  url: string;
+}
+
+export interface SwatchBlockData extends BaseBlock {
+  type: "swatch";
+  swatches: Swatch[];
+}
+
 export type Block =
   | NoteBlockData
   | FileOrganizerBlockData
   | CalendarBlockData
-  | MoodboardBlockData;
+  | MoodboardBlockData
+  | LinkBlockData
+  | SwatchBlockData;
 
 // ---------- project / app ----------
 export interface ProjectFolder {
@@ -239,7 +289,7 @@ export interface AppData {
   activeTabId: string | null;
 }
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Marker used in task text to carry a due date through migration/export. */
 export const DUE_MARKER = "⏳";

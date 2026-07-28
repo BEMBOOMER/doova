@@ -13,6 +13,8 @@ import { startBackupSchedule } from "./lib/backup";
 import { startUpdateWatch } from "./lib/updater";
 import { sweepUnusedImages } from "./lib/moodboard";
 import { syncCaptureHotkey } from "./lib/quickCapture";
+import { sweepUnusedFavicons } from "./lib/links";
+import { hasPasteContent, pasteToCanvas, readClipboard } from "./lib/pasteToCanvas";
 import { useFileDrop } from "./hooks/useFileDrop";
 import { Sidebar } from "./components/layout/Sidebar";
 import { CanvasBoard } from "./components/layout/CanvasBoard";
@@ -56,6 +58,13 @@ export default function App() {
           tab.blocks.flatMap((b) => (b.type === "moodboard" ? b.images.map((i) => i.file) : [])),
         );
         void sweepUnusedImages(files);
+        // Favicons live in their own folder precisely so the image sweep above
+        // does not eat them: every favicon has an image extension and no block
+        // claims it as an image.
+        const icons = state.tabs.flatMap((tab) =>
+          tab.blocks.flatMap((b) => (b.type === "link" && b.favicon ? [b.favicon] : [])),
+        );
+        void sweepUnusedFavicons(icons);
       });
 
     // stil op de achtergrond: alleen een melding als er echt iets nieuws is
@@ -91,10 +100,27 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
 
+    // Last in line: an editor, an input or a hovered moodboard all claim a
+    // paste before this does, so what arrives here was aimed at the canvas.
+    const onPaste = (e: ClipboardEvent) => {
+      if (isTypingTarget(e.target)) return;
+      if (useUiStore.getState().activeView !== "canvas") return;
+      if (useUiStore.getState().paletteOpen) return;
+      if (!e.clipboardData || e.defaultPrevented) return;
+      // Read and decide now: the DataTransfer dies with this handler, and a
+      // preventDefault after an await would come too late to mean anything.
+      const pasted = readClipboard(e.clipboardData);
+      if (!hasPasteContent(pasted)) return;
+      e.preventDefault();
+      void pasteToCanvas(pasted);
+    };
+    window.addEventListener("paste", onPaste);
+
     // never lose the last few seconds of work on quit
     if (!isTauri())
       return () => {
         window.removeEventListener("keydown", onKey);
+        window.removeEventListener("paste", onPaste);
         stopUpdateWatch();
       };
     // Quick capture lives in its own window with no disk access, so it hands
@@ -120,6 +146,7 @@ export default function App() {
     });
     return () => {
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("paste", onPaste);
       stopUpdateWatch();
       void unlistenCapture.then((fn) => fn());
       void unlistenClose.then((fn) => fn());

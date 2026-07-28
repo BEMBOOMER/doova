@@ -9,6 +9,8 @@ import { NoteBlock } from "./note/NoteBlock";
 import { FileOrganizerBlock } from "./file-organizer/FileOrganizerBlock";
 import { CalendarBlock } from "./calendar/CalendarBlock";
 import { MoodboardBlock } from "./moodboard/MoodboardBlock";
+import { LinkBlock } from "./link/LinkBlock";
+import { SwatchBlock } from "./swatch/SwatchBlock";
 
 export function BlockContainer({
   block,
@@ -149,6 +151,8 @@ export function BlockContainer({
         {block.type === "file-organizer" && <FileOrganizerBlock block={block} />}
         {block.type === "calendar" && <CalendarBlock block={block} />}
         {block.type === "moodboard" && <MoodboardBlock block={block} />}
+        {block.type === "link" && <LinkBlock block={block} />}
+        {block.type === "swatch" && <SwatchBlock block={block} />}
       </div>
       {menuPos &&
         createPortal(

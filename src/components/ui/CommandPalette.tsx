@@ -88,6 +88,14 @@ export function CommandPalette() {
           haystack += " " + block.files.map((it) => it.name).join(" ").toLowerCase();
         if (block.type === "calendar")
           haystack += " " + block.events.map((ev) => ev.title).join(" ").toLowerCase();
+        if (block.type === "moodboard")
+          haystack += " " + block.images.map((img) => img.name).join(" ").toLowerCase();
+        // the url counts as much as the title: you often remember the domain
+        if (block.type === "link")
+          haystack += " " + `${block.url} ${block.linkTitle ?? ""}`.toLowerCase();
+        if (block.type === "swatch")
+          haystack +=
+            " " + block.swatches.map((sw) => `${sw.hex} ${sw.name ?? ""}`).join(" ").toLowerCase();
         if (haystack.includes(q)) {
           hits.push({
             id: `hit-${block.id}`,
