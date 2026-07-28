@@ -41,6 +41,10 @@ interface UiState {
   selectedConnectionId: string | null;
   setSelectedConnectionId: (id: string | null) => void;
 
+  /** canvas scale; 1 is life size. Session-only, like a scroll position. */
+  zoom: number;
+  setZoom: (zoom: number) => void;
+
   toasts: Toast[];
   showToast: (
     message: string,
@@ -74,6 +78,11 @@ export const useUiStore = create<UiState>((set) => ({
 
   selectedConnectionId: null,
   setSelectedConnectionId: (selectedConnectionId) => set({ selectedConnectionId }),
+
+  zoom: 1,
+  // Below a third the blocks are unreadable, above double there is no overview
+  // left to gain, and both extremes make the drag maths lose precision.
+  setZoom: (zoom) => set({ zoom: Math.min(2, Math.max(0.34, zoom)) }),
 
   interacting: false,
   setInteracting: (interacting) => {

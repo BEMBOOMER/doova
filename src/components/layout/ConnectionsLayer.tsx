@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Block, Connection } from "../../types";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useUiStore } from "../../stores/uiStore";
+import { canvasScale } from "../../lib/canvasView";
 
 /**
  * Draws the lines between blocks, and keeps them attached while you drag.
@@ -94,11 +95,19 @@ export function ConnectionsLayer({
 
     const tick = () => {
       const origin = inner.getBoundingClientRect();
+      // getBoundingClientRect reports scaled pixels; the paths are drawn inside
+      // the scaled layer and so are in canvas units.
+      const scale = canvasScale();
       const live = (id: string): Rect | null => {
         const el = document.querySelector<HTMLElement>(`[data-block-id="${id}"]`);
         if (!el) return null;
         const r = el.getBoundingClientRect();
-        return { x: r.left - origin.left, y: r.top - origin.top, width: r.width, height: r.height };
+        return {
+          x: (r.left - origin.left) / scale,
+          y: (r.top - origin.top) / scale,
+          width: r.width / scale,
+          height: r.height / scale,
+        };
       };
       for (const connection of drawable) {
         const from = live(connection.fromBlockId);

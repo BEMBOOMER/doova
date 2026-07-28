@@ -77,6 +77,25 @@ export default function App() {
       const { shortcuts } = useSettingsStore.getState();
       const typing = isTypingTarget(e.target);
 
+      // Fixed rather than configurable: cmd+plus, cmd+minus and cmd+0 mean zoom
+      // in every app, and a user who rebound them would only surprise themselves.
+      const ui2 = useUiStore.getState();
+      if ((e.metaKey || e.ctrlKey) && (e.key === "=" || e.key === "+")) {
+        e.preventDefault();
+        ui2.setZoom(ui2.zoom + 0.15);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "-") {
+        e.preventDefault();
+        ui2.setZoom(ui2.zoom - 0.15);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "0") {
+        e.preventDefault();
+        ui2.setZoom(1);
+        return;
+      }
+
       if (matches(shortcuts.palette, e)) {
         e.preventDefault();
         ui.setPaletteOpen(!ui.paletteOpen);

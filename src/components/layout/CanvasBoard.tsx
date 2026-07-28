@@ -4,7 +4,13 @@ import type { Block, BlockGroup } from "../../types";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
-import { registerViewport } from "../../lib/canvasView";
+import {
+  canvasScale,
+  fitToBlocks,
+  registerViewport,
+  scrollViewportTo,
+  toCanvasPoint,
+} from "../../lib/canvasView";
 import { TEMPLATES } from "../../lib/templates";
 import { ConnectionsLayer } from "./ConnectionsLayer";
 import { CanvasBlock } from "../blocks/CanvasBlock";
@@ -66,9 +72,11 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
   const onDragMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
-    if (!d.moved && Math.hypot(dx, dy) < 4) return;
+    // The pointer moves in screen pixels; the blocks live in canvas ones.
+    const scale = canvasScale();
+    const dx = (e.clientX - d.startX) / scale;
+    const dy = (e.clientY - d.startY) / scale;
+    if (!d.moved && Math.hypot(dx, dy) * scale < 4) return;
     d.moved = true;
     setDragOffset({ x: dx, y: dy });
     for (const { el, left, top } of d.els) {
@@ -87,8 +95,9 @@ function GroupOverlay({ group, members }: { group: BlockGroup; members: Block[] 
       toggleBlockGroup(group.id);
       return;
     }
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
+    const scale = canvasScale();
+    const dx = (e.clientX - d.startX) / scale;
+    const dy = (e.clientY - d.startY) / scale;
     if (group.collapsed) {
       setGroupPosition(group.id, group.x + dx, group.y + dy);
     } else {
@@ -291,6 +300,8 @@ export function CanvasBoard() {
     promoteBlockToSwatch,
   } = useProjectsStore();
   const setSelectedBlockId = useUiStore((s) => s.setSelectedBlockId);
+  const zoom = useUiStore((s) => s.zoom);
+  const setZoom = useUiStore((s) => s.setZoom);
   const revealBlockId = useUiStore((s) => s.revealBlockId);
   const setRevealBlockId = useUiStore((s) => s.setRevealBlockId);
   const tab = tabs.find((t) => t.id === activeTabId);
@@ -336,6 +347,52 @@ export function CanvasBoard() {
     setRevealBlockId(null);
     return () => clearTimeout(timer);
   }, [revealBlockId, activeTabId, setRevealBlockId]);
+
+  // lets code outside this component place a block where you are looking
+  useEffect(() => {
+    registerViewport(viewportRef.current);
+    return () => registerViewport(null);
+  });
+
+  // A search hit switches project first, so the block does not exist yet when
+  // the palette closes; this runs once its canvas has actually rendered.
+  useEffect(() => {
+    if (!revealBlockId) return;
+    const el = document.querySelector<HTMLElement>(`[data-block-id="${revealBlockId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    el.classList.add("reveal-flash");
+    const timer = setTimeout(() => el.classList.remove("reveal-flash"), 1200);
+    setRevealBlockId(null);
+    return () => clearTimeout(timer);
+  }, [revealBlockId, activeTabId, setRevealBlockId]);
+
+  // Anchored zoom: the canvas point under the cursor stays under the cursor,
+  // which is the difference between zooming and being thrown across the board.
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const before = useUiStore.getState().zoom;
+      // Multiplicative and capped per event: a trackpad pinch sends a stream of
+      // small deltas and a mouse wheel one big one, and a linear factor let the
+      // second jump straight to the limit.
+      const step = Math.min(1.2, Math.max(0.833, Math.exp(-e.deltaY * 0.0025)));
+      const next = Math.min(2, Math.max(0.34, before * step));
+      if (next === before) return;
+      const rect = vp.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      setZoom(next);
+      const ratio = next / before;
+      vp.scrollLeft = (vp.scrollLeft + cx) * ratio - cx;
+      vp.scrollTop = (vp.scrollTop + cy) * ratio - cy;
+    };
+    vp.addEventListener("wheel", onWheel, { passive: false });
+    return () => vp.removeEventListener("wheel", onWheel);
+  }, [setZoom]);
 
   useEffect(() => {
     const vp = viewportRef.current;
@@ -413,10 +470,7 @@ export function CanvasBoard() {
     ...tab.blocks.map((b) => b.layout.y + b.layout.height + CANVAS_MARGIN),
   );
 
-  const canvasPoint = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    return { x: Math.max(0, e.clientX - rect.left), y: Math.max(0, e.clientY - rect.top) };
-  };
+  const canvasPoint = (e: React.MouseEvent) => toCanvasPoint(e.clientX, e.clientY);
 
   return (
     <div className="relative min-h-0 flex-1">
@@ -429,10 +483,18 @@ export function CanvasBoard() {
           if (panButton !== 0 && e.button === panButton) e.preventDefault();
         }}
       >
+        {/* The spacer carries the scaled size so the native scrollbars and the
+            existing pan keep working untouched; only the inner layer is scaled. */}
+        <div style={{ width: width * zoom, height: height * zoom }}>
         <div
           id="canvas-inner"
           className="relative"
-          style={{ width, height }}
+          style={{
+            width,
+            height,
+            transform: zoom === 1 ? undefined : `scale(${zoom})`,
+            transformOrigin: "0 0",
+          }}
           onDoubleClick={(e) => {
             if (e.target !== e.currentTarget) return;
             addBlock(canvasPoint(e));
@@ -473,6 +535,12 @@ export function CanvasBoard() {
                   width={width}
                   height={height}
                 />
+                <ConnectionsLayer
+                  connections={tab.connections ?? []}
+                  blocks={tab.blocks}
+                  width={width}
+                  height={height}
+                />
                 {groups.map((group) => {
                   const members = tab.blocks.filter((b) => b.groupId === group.id);
                   if (members.length === 0) return null;
@@ -490,6 +558,37 @@ export function CanvasBoard() {
             </div>
           )}
         </div>
+        </div>
+      </div>
+
+      <div className="panel absolute bottom-5 left-5 z-40 flex items-center gap-0.5 px-1 py-0.5">
+        <button
+          onClick={() => setZoom(zoom - 0.15)}
+          className="h-7 w-7 rounded-themed-sm text-[15px] text-ink-soft transition-colors hover:bg-surface-raised hover:text-ink"
+          title="Uitzoomen (⌘−)"
+        >
+          −
+        </button>
+        <button
+          onClick={() => {
+            const fit = fitToBlocks(tab.blocks);
+            if (!fit) return;
+            setZoom(fit.zoom);
+            // after the scale has landed, so the scroll lands in the new space
+            requestAnimationFrame(() => scrollViewportTo(fit.scrollLeft, fit.scrollTop));
+          }}
+          className="heading min-w-12 rounded-themed-sm px-1 text-[11px] text-ink-soft transition-colors hover:bg-surface-raised hover:text-ink"
+          title="Alles in beeld"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          onClick={() => setZoom(zoom + 0.15)}
+          className="h-7 w-7 rounded-themed-sm text-[15px] text-ink-soft transition-colors hover:bg-surface-raised hover:text-ink"
+          title="Inzoomen (⌘+)"
+        >
+          +
+        </button>
       </div>
 
       <button

@@ -5,6 +5,7 @@ import { useUiStore } from "../stores/uiStore";
 import { makeFileItem, revealInFinder } from "../lib/fileSystem";
 import { importImagePaths, isImagePath } from "../lib/moodboard";
 import { planDrop } from "../lib/dropTarget";
+import { toCanvasPoint } from "../lib/canvasView";
 import { isTauri } from "../lib/ids";
 
 /**
@@ -76,9 +77,7 @@ export function useFileDrop() {
           notify(plan.items.length, paths[0]);
         } else {
           // empty canvas (or a calendar): fresh block at the drop point
-          const canvas = document.getElementById("canvas-inner");
-          const rect = canvas?.getBoundingClientRect();
-          const at = rect ? { x: Math.max(0, x - rect.left), y: Math.max(0, y - rect.top) } : undefined;
+          const at = toCanvasPoint(x, y);
           const newId = store.addBlock(at);
           store.promoteBlockToFileOrganizer(newId, plan.items);
           notify(plan.items.length, paths[0]);
