@@ -348,25 +348,6 @@ export function CanvasBoard() {
     return () => clearTimeout(timer);
   }, [revealBlockId, activeTabId, setRevealBlockId]);
 
-  // lets code outside this component place a block where you are looking
-  useEffect(() => {
-    registerViewport(viewportRef.current);
-    return () => registerViewport(null);
-  });
-
-  // A search hit switches project first, so the block does not exist yet when
-  // the palette closes; this runs once its canvas has actually rendered.
-  useEffect(() => {
-    if (!revealBlockId) return;
-    const el = document.querySelector<HTMLElement>(`[data-block-id="${revealBlockId}"]`);
-    if (!el) return;
-    el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
-    el.classList.add("reveal-flash");
-    const timer = setTimeout(() => el.classList.remove("reveal-flash"), 1200);
-    setRevealBlockId(null);
-    return () => clearTimeout(timer);
-  }, [revealBlockId, activeTabId, setRevealBlockId]);
-
   // Anchored zoom: the canvas point under the cursor stays under the cursor,
   // which is the difference between zooming and being thrown across the board.
   useEffect(() => {
@@ -529,15 +510,11 @@ export function CanvasBoard() {
                     registerTarget={registerTarget}
                   />
                 ))}
+                {/* only the blocks actually on the board: a line to a member of
+                    a collapsed group would otherwise hang in empty space */}
                 <ConnectionsLayer
                   connections={tab.connections ?? []}
-                  blocks={tab.blocks}
-                  width={width}
-                  height={height}
-                />
-                <ConnectionsLayer
-                  connections={tab.connections ?? []}
-                  blocks={tab.blocks}
+                  blocks={visible}
                   width={width}
                   height={height}
                 />

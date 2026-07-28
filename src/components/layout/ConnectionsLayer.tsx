@@ -125,6 +125,15 @@ export function ConnectionsLayer({
     return () => cancelAnimationFrame(frame);
   }, [interacting, drawable]);
 
+  // Selection is only ever as real as what is on screen. A line whose block
+  // just hid inside a collapsed group, or was deleted, stops being drawn, and a
+  // selection left pointing at it would arm Delete for something invisible.
+  useEffect(() => {
+    if (!selectedConnectionId) return;
+    if (drawable.some((c) => c.id === selectedConnectionId)) return;
+    setSelectedConnectionId(null);
+  }, [selectedConnectionId, drawable, setSelectedConnectionId]);
+
   useEffect(() => {
     if (!selectedConnectionId) return;
     const onKey = (e: KeyboardEvent) => {

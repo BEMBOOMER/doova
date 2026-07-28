@@ -61,8 +61,10 @@ export const useUiStore = create<UiState>((set) => ({
   activeView: "canvas",
   setActiveView: (activeView) => set({ activeView }),
 
+  // One thing at a time. Blocks and lines used to hold their own selection, so
+  // picking one never released the other and a clicked line stayed lit forever.
   selectedBlockId: null,
-  setSelectedBlockId: (selectedBlockId) => set({ selectedBlockId }),
+  setSelectedBlockId: (selectedBlockId) => set({ selectedBlockId, selectedConnectionId: null }),
 
   paletteOpen: false,
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
@@ -77,7 +79,8 @@ export const useUiStore = create<UiState>((set) => ({
   setRevealBlockId: (revealBlockId) => set({ revealBlockId }),
 
   selectedConnectionId: null,
-  setSelectedConnectionId: (selectedConnectionId) => set({ selectedConnectionId }),
+  setSelectedConnectionId: (selectedConnectionId) =>
+    set(selectedConnectionId ? { selectedConnectionId, selectedBlockId: null } : { selectedConnectionId }),
 
   zoom: 1,
   // Below a third the blocks are unreadable, above double there is no overview
