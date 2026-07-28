@@ -29,6 +29,8 @@ import { newId, nowIso } from "../lib/ids";
 import { copyStoredImages } from "../lib/moodboard";
 import { makeWelcomeTab } from "../lib/onboarding";
 import { DATA_FILE, loadJson, saveJsonDebounced } from "../lib/persistence";
+import * as history from "../lib/history";
+import { recordCommit } from "../lib/history";
 
 const GAP = 16;
 
@@ -244,6 +246,53 @@ function normalizeTabs(tabs: ProjectTab[]): ProjectTab[] {
   });
 }
 
+
+type SetState = (partial: Partial<ProjectsState>) => void;
+type GetState = () => ProjectsState;
+
+/** The load itself, kept apart so load() can reset history once it settles. */
+async function loadInto(set: SetState, get: GetState) {
+  const result = await loadJson<AppData>(DATA_FILE);
+    if (result.status === "ok" && Array.isArray(result.data.tabs) && result.data.tabs.length > 0) {
+      const data = result.data;
+      const folders = Array.isArray(data.folders) ? data.folders : [];
+      if (data.schemaVersion > SCHEMA_VERSION) {
+        console.error(`data.json has schema ${data.schemaVersion}, app supports ${SCHEMA_VERSION}`);
+        set({ tabs: normalizeTabs(data.tabs), folders, activeTabId: data.tabs[0].id, loaded: true, loadFailed: true });
+        return;
+      }
+      const tabs = normalizeTabs(data.tabs);
+      const activeTabId = tabs.some((t) => t.id === data.activeTabId) ? data.activeTabId : tabs[0].id;
+      set({ tabs, folders, activeTabId, loaded: true });
+      if (data.schemaVersion < SCHEMA_VERSION) persist(get()); // write migrated shape once
+    } else if (result.status === "error") {
+      const first = makeTab("Project 1");
+      set({ tabs: [first], activeTabId: first.id, loaded: true, loadFailed: true });
+    } else {
+      // "missing" only: a failed read lands in the branch above and must never
+      // reach this, or a recoverable data.json would be replaced by samples
+      const welcome = makeWelcomeTab();
+      set({ tabs: [welcome], activeTabId: welcome.id, loaded: true });
+      persist(get());
+    }
+}
+
+/**
+ * Undoing can remove the project you were looking at, so the view falls back to
+ * one that still exists rather than rendering nothing.
+ */
+function applyRestored(
+  state: Pick<ProjectsState, "activeTabId">,
+  restored: { tabs: ProjectTab[]; folders: ProjectFolder[] },
+): Pick<ProjectsState, "tabs" | "folders" | "activeTabId"> {
+  const stillThere = restored.tabs.some((t) => t.id === state.activeTabId);
+  return {
+    tabs: restored.tabs,
+    folders: restored.folders,
+    activeTabId: stillThere ? state.activeTabId : (restored.tabs[0]?.id ?? null),
+  };
+}
+
 // ---------- store ----------
 
 interface ProjectsState {
@@ -255,6 +304,8 @@ interface ProjectsState {
   loadFailed: boolean;
 
   load: () => Promise<void>;
+  undo: () => boolean;
+  redo: () => boolean;
 
   addTab: () => void;
   renameTab: (tabId: string, name: string) => void;
@@ -330,10 +381,25 @@ interface ProjectsState {
   removeBlockFromGroup: (blockId: string) => void;
 }
 
+/**
+ * The single seam every mutation already passed through, so it is also where
+ * history is recorded. Options exist for the two exceptions: things that are not
+ * really changes to your work (`history: false`), and per-keystroke edits that
+ * should collapse into one step (`coalesceKey`).
+ */
+interface PersistOptions {
+  history?: boolean;
+  coalesceKey?: string;
+}
+
 function persist(
   state: Pick<ProjectsState, "tabs" | "folders" | "activeTabId" | "loaded" | "loadFailed">,
+  options: PersistOptions = {},
 ) {
   if (!state.loaded || state.loadFailed) return;
+  if (options.history !== false) {
+    recordCommit({ tabs: state.tabs, folders: state.folders }, options.coalesceKey);
+  }
   const data: AppData = {
     schemaVersion: SCHEMA_VERSION,
     tabs: state.tabs,
@@ -422,29 +488,29 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   loadFailed: false,
 
   load: async () => {
-    const result = await loadJson<AppData>(DATA_FILE);
-    if (result.status === "ok" && Array.isArray(result.data.tabs) && result.data.tabs.length > 0) {
-      const data = result.data;
-      const folders = Array.isArray(data.folders) ? data.folders : [];
-      if (data.schemaVersion > SCHEMA_VERSION) {
-        console.error(`data.json has schema ${data.schemaVersion}, app supports ${SCHEMA_VERSION}`);
-        set({ tabs: normalizeTabs(data.tabs), folders, activeTabId: data.tabs[0].id, loaded: true, loadFailed: true });
-        return;
-      }
-      const tabs = normalizeTabs(data.tabs);
-      const activeTabId = tabs.some((t) => t.id === data.activeTabId) ? data.activeTabId : tabs[0].id;
-      set({ tabs, folders, activeTabId, loaded: true });
-      if (data.schemaVersion < SCHEMA_VERSION) persist(get()); // write migrated shape once
-    } else if (result.status === "error") {
-      const first = makeTab("Project 1");
-      set({ tabs: [first], activeTabId: first.id, loaded: true, loadFailed: true });
-    } else {
-      // "missing" only: a failed read lands in the branch above and must never
-      // reach this, or a recoverable data.json would be replaced by samples
-      const welcome = makeWelcomeTab();
-      set({ tabs: [welcome], activeTabId: welcome.id, loaded: true });
-      persist(get());
-    }
+    await loadInto(set, get);
+    // Whatever was on disk is the starting point, not something to undo into.
+    const state = get();
+    history.resetHistory({ tabs: state.tabs, folders: state.folders });
+  },
+
+  undo: () => {
+    const state = get();
+    const restored = history.undo({ tabs: state.tabs, folders: state.folders });
+    if (!restored) return false;
+    set(applyRestored(state, restored));
+    // history already moved; recording this would undo the undo
+    persist(get(), { history: false });
+    return true;
+  },
+
+  redo: () => {
+    const state = get();
+    const restored = history.redo({ tabs: state.tabs, folders: state.folders });
+    if (!restored) return false;
+    set(applyRestored(state, restored));
+    persist(get(), { history: false });
+    return true;
   },
 
   addTab: () => {
@@ -484,7 +550,8 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
 
   setActiveTab: (tabId) => {
     set({ activeTabId: tabId });
-    persist(get());
+    // switching project is navigation, not something you would want to undo
+    persist(get(), { history: false });
   },
 
   reorderTabs: (fromId, toId) => {
@@ -834,7 +901,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         b.type === "note" ? { ...b, content } : b,
       ),
     }));
-    persist(get());
+    // One entry per burst of typing, not per keystroke: cmd+Z inside the editor
+    // is ProseMirror's, and at this level you want the note back as it was.
+    persist(get(), { coalesceKey: `note:${blockId}` });
   },
 
   promoteBlockToMoodboard: (blockId, images) => {
@@ -883,7 +952,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         b.type === "moodboard" ? { ...b, images } : b,
       ),
     }));
-    persist(get());
+    // Lands a moment after duplicateBlock as its own file copies finish; it is
+    // part of that action, not a second thing you did.
+    persist(get(), { history: false });
   },
 
   promoteBlockToLink: (blockId, url) => {
@@ -921,7 +992,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         };
       }),
     }));
-    persist(get());
+    persist(get(), { history: false });
   },
 
   promoteBlockToSwatch: (blockId, swatches) => {

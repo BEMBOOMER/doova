@@ -91,6 +91,14 @@ export default function App() {
       } else if (matches(shortcuts.settings, e)) {
         e.preventDefault();
         ui.setActiveView(ui.activeView === "settings" ? "canvas" : "settings");
+      } else if (matches(shortcuts.undo, e) && !typing) {
+        // Only outside a text field: inside one, ProseMirror's own history owns
+        // these keys, and app-level undo would throw away the sentence instead.
+        e.preventDefault();
+        useProjectsStore.getState().undo();
+      } else if (matches(shortcuts.redo, e) && !typing) {
+        e.preventDefault();
+        useProjectsStore.getState().redo();
       } else if (matches(shortcuts.exportProject, e) && !typing) {
         e.preventDefault();
         const p = useProjectsStore.getState();

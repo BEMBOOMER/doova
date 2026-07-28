@@ -32,7 +32,7 @@ function Snippet({ text, match }: { text: string; match: SearchHit["match"] }) {
 export function CommandPalette() {
   const { paletteOpen, setPaletteOpen, setActiveView, setSelectedBlockId, setRevealBlockId } =
     useUiStore();
-  const { tabs, activeTabId, setActiveTab, addBlock, addCalendarBlock, addTab, addBlocks } =
+  const { tabs, activeTabId, setActiveTab, addBlock, addCalendarBlock, addTab, addBlocks, undo, redo } =
     useProjectsStore();
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
@@ -83,6 +83,8 @@ export function CommandPalette() {
             },
           ]
         : []),
+      { id: "undo", label: "Ongedaan maken", run: () => { undo(); close(); } },
+      { id: "redo", label: "Opnieuw", run: () => { redo(); close(); } },
       { id: "settings", label: "Instellingen openen", run: () => { setActiveView("settings"); close(); } },
       ...tabs
         .filter((t) => t.id !== activeTabId)
@@ -113,7 +115,7 @@ export function CommandPalette() {
     }));
 
     return [...hits, ...base.filter((c) => c.label.toLowerCase().includes(q))];
-  }, [tabs, activeTabId, query, addBlock, addBlocks, addCalendarBlock, addTab, setActiveTab, setActiveView, setPaletteOpen, setSelectedBlockId, setRevealBlockId]);
+  }, [tabs, activeTabId, query, addBlock, addBlocks, addCalendarBlock, addTab, undo, redo, setActiveTab, setActiveView, setPaletteOpen, setSelectedBlockId, setRevealBlockId]);
 
   useEffect(() => {
     setIndex((i) => Math.min(i, Math.max(0, commands.length - 1)));

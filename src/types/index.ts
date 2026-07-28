@@ -28,7 +28,9 @@ export type ShortcutAction =
   | "toggleSidebar"
   | "settings"
   | "exportProject"
-  | "quickCapture";
+  | "quickCapture"
+  | "undo"
+  | "redo";
 
 export const SHORTCUT_ACTIONS: { id: ShortcutAction; label: string; hint: string }[] = [
   { id: "palette", label: "Zoeken & acties", hint: "Opent de command-palette" },
@@ -36,6 +38,8 @@ export const SHORTCUT_ACTIONS: { id: ShortcutAction; label: string; hint: string
   { id: "toggleSidebar", label: "Zijbalk in/uitklappen", hint: "Meer ruimte voor je canvas" },
   { id: "settings", label: "Instellingen", hint: "Wisselt tussen canvas en instellingen" },
   { id: "exportProject", label: "Exporteer project", hint: "Markdown van het actieve project" },
+  { id: "undo", label: "Ongedaan maken", hint: "Laatste wijziging terugdraaien" },
+  { id: "redo", label: "Opnieuw", hint: "Een teruggedraaide wijziging herstellen" },
   {
     id: "quickCapture",
     label: "Snel vastleggen",
@@ -50,6 +54,8 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, string> = {
   settings: "mod+,",
   exportProject: "mod+shift+e",
   quickCapture: "mod+shift+ ",
+  undo: "mod+z",
+  redo: "mod+shift+z",
 };
 
 export interface SettingsData {
