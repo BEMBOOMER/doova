@@ -33,6 +33,10 @@ interface UiState {
   dictatingBlockId: string | null;
   setDictatingBlockId: (id: string | null) => void;
 
+  /** a search hit waiting to be scrolled to, once its canvas has rendered */
+  revealBlockId: string | null;
+  setRevealBlockId: (id: string | null) => void;
+
   toasts: Toast[];
   showToast: (
     message: string,
@@ -60,6 +64,9 @@ export const useUiStore = create<UiState>((set) => ({
 
   dictatingBlockId: null,
   setDictatingBlockId: (dictatingBlockId) => set({ dictatingBlockId }),
+
+  revealBlockId: null,
+  setRevealBlockId: (revealBlockId) => set({ revealBlockId }),
 
   interacting: false,
   setInteracting: (interacting) => {

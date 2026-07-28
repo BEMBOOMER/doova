@@ -253,6 +253,16 @@ export interface SwatchBlockData extends BaseBlock {
   swatches: Swatch[];
 }
 
+/**
+ * Omit applied to each member of a union separately. A plain Omit over a union
+ * collapses to the keys they share, which for Block means losing every field
+ * that makes a block what it is.
+ */
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
+
+/** A block as a template describes it, before the store gives it an identity. */
+export type NewBlock = DistributiveOmit<Block, "id" | "createdAt">;
+
 export type Block =
   | NoteBlockData
   | FileOrganizerBlockData

@@ -10,6 +10,7 @@ import type {
   FileOrganizerItem,
   LinkMeta,
   MoodboardImage,
+  NewBlock,
   NoteBlockData,
   Swatch,
   ProjectFolder,
@@ -265,6 +266,8 @@ interface ProjectsState {
 
   addBlock: (at?: { x: number; y: number }) => string;
   addToInbox: (text: string) => void;
+  /** Drops a whole template in at once, as one entry rather than a dozen. */
+  addBlocks: (blocks: NewBlock[], at?: { x: number; y: number }) => void;
   addCalendarBlock: (at?: { x: number; y: number }) => void;
   removeBlock: (blockId: string) => void;
   restoreBlock: (tabId: string, block: Block) => void;
@@ -606,6 +609,35 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         activeTabId: s.activeTabId ?? filled.id,
       };
     });
+    persist(get());
+  },
+
+  addBlocks: (blocks, at) => {
+    if (blocks.length === 0) return;
+    set((s) => ({
+      tabs: withTab(s.tabs, s.activeTabId, (t) => {
+        // The template's own coordinates are relative to its top-left corner, so
+        // the whole set lands together wherever you asked for it.
+        const originX = Math.min(...blocks.map((b) => b.layout.x));
+        const originY = Math.min(...blocks.map((b) => b.layout.y));
+        const width = Math.max(...blocks.map((b) => b.layout.x + b.layout.width)) - originX;
+        const height = Math.max(...blocks.map((b) => b.layout.y + b.layout.height)) - originY;
+        const target = at ?? findFreeSlot(t.blocks, { width, height });
+        const base = maxZ(t.blocks);
+        const placed = blocks.map((b, i) => ({
+          ...b,
+          id: newId(),
+          createdAt: nowIso(),
+          layout: {
+            ...b.layout,
+            x: target.x + (b.layout.x - originX),
+            y: target.y + (b.layout.y - originY),
+            z: base + i + 1,
+          },
+        })) as Block[];
+        return { ...t, blocks: [...t.blocks, ...placed] };
+      }),
+    }));
     persist(get());
   },
 

@@ -5,6 +5,7 @@ import { useProjectsStore } from "../../stores/projectsStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { registerViewport } from "../../lib/canvasView";
+import { TEMPLATES } from "../../lib/templates";
 import { CanvasBlock } from "../blocks/CanvasBlock";
 
 /** Roughly the menu's own size, used only to decide whether it fits above. */
@@ -279,10 +280,13 @@ export function CanvasBoard() {
     activeTabId,
     addBlock,
     addCalendarBlock,
+    addBlocks,
     promoteBlockToMoodboard,
     promoteBlockToSwatch,
   } = useProjectsStore();
   const setSelectedBlockId = useUiStore((s) => s.setSelectedBlockId);
+  const revealBlockId = useUiStore((s) => s.revealBlockId);
+  const setRevealBlockId = useUiStore((s) => s.setRevealBlockId);
   const tab = tabs.find((t) => t.id === activeTabId);
 
   const targetsRef = useRef(new Map<string, HTMLElement>());
@@ -313,6 +317,19 @@ export function CanvasBoard() {
     registerViewport(viewportRef.current);
     return () => registerViewport(null);
   });
+
+  // A search hit switches project first, so the block does not exist yet when
+  // the palette closes; this runs once its canvas has actually rendered.
+  useEffect(() => {
+    if (!revealBlockId) return;
+    const el = document.querySelector<HTMLElement>(`[data-block-id="${revealBlockId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    el.classList.add("reveal-flash");
+    const timer = setTimeout(() => el.classList.remove("reveal-flash"), 1200);
+    setRevealBlockId(null);
+    return () => clearTimeout(timer);
+  }, [revealBlockId, activeTabId, setRevealBlockId]);
 
   useEffect(() => {
     const vp = viewportRef.current;
@@ -520,6 +537,20 @@ export function CanvasBoard() {
             >
               ◧ Kleuren hier
             </button>
+            <p className="mb-0.5 mt-1.5 px-2 text-[11px] text-ink-soft">Sjabloon…</p>
+            {TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                onClick={() => {
+                  addBlocks(template.build(), { x: ctxMenu.canvasX, y: ctxMenu.canvasY });
+                  setCtxMenu(null);
+                }}
+                className="w-full truncate rounded-themed-sm px-2 py-1 text-left text-[12.5px] hover:bg-accent hover:text-accent-ink"
+                title={template.hint}
+              >
+                ▤ {template.name}
+              </button>
+            ))}
           </div>,
           document.body,
         )}

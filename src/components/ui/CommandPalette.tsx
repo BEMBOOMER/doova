@@ -1,24 +1,38 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { JSONContent } from "@tiptap/react";
 import { useProjectsStore } from "../../stores/projectsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { runExportDigest, runExportFull } from "../../lib/exportActions";
+import { searchBlocks, type SearchHit } from "../../lib/search";
+import { TEMPLATES } from "../../lib/templates";
 
 interface Command {
   id: string;
   label: string;
   hint?: string;
+  /** shown under the label, with the matched part marked */
+  snippet?: SearchHit["snippet"];
+  match?: SearchHit["match"];
   run: () => void;
 }
 
-function textOf(node: JSONContent): string {
-  if (node.type === "text") return node.text ?? "";
-  return (node.content ?? []).map(textOf).join(" ");
+/** Splits a snippet around the match so the middle can be marked. */
+function Snippet({ text, match }: { text: string; match: SearchHit["match"] }) {
+  if (!match) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, match.start)}
+      <mark className="bg-transparent font-semibold text-inherit underline decoration-1 underline-offset-2">
+        {text.slice(match.start, match.end)}
+      </mark>
+      {text.slice(match.end)}
+    </>
+  );
 }
 
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, setActiveView, setSelectedBlockId } = useUiStore();
-  const { tabs, activeTabId, setActiveTab, addBlock, addCalendarBlock, addTab } =
+  const { paletteOpen, setPaletteOpen, setActiveView, setSelectedBlockId, setRevealBlockId } =
+    useUiStore();
+  const { tabs, activeTabId, setActiveTab, addBlock, addCalendarBlock, addTab, addBlocks } =
     useProjectsStore();
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
@@ -48,6 +62,12 @@ export function CommandPalette() {
         run: () => { addCalendarBlock(); setActiveView("canvas"); close(); },
       },
       { id: "new-project", label: "Nieuw project", run: () => { addTab(); setActiveView("canvas"); close(); } },
+      ...TEMPLATES.map((template) => ({
+        id: `template-${template.id}`,
+        label: `Sjabloon: ${template.name}`,
+        hint: template.hint,
+        run: () => { addBlocks(template.build()); setActiveView("canvas"); close(); },
+      })),
       ...(activeTab
         ? [
             {
@@ -76,46 +96,24 @@ export function CommandPalette() {
     const q = query.trim().toLowerCase();
     if (!q) return base;
 
-    // block-level search across every project
-    const hits: Command[] = [];
-    for (const tab of tabs) {
-      for (const block of tab.blocks) {
-        let haystack = block.title.toLowerCase();
-        if (block.type === "note" && block.content) haystack += " " + textOf(block.content).toLowerCase();
-        if (block.type === "file-organizer")
-          haystack += " " + block.items.map((it) => it.name).join(" ").toLowerCase();
-        if (block.type === "note" && block.files?.length)
-          haystack += " " + block.files.map((it) => it.name).join(" ").toLowerCase();
-        if (block.type === "calendar")
-          haystack += " " + block.events.map((ev) => ev.title).join(" ").toLowerCase();
-        if (block.type === "moodboard")
-          haystack += " " + block.images.map((img) => img.name).join(" ").toLowerCase();
-        // the url counts as much as the title: you often remember the domain
-        if (block.type === "link")
-          haystack += " " + `${block.url} ${block.linkTitle ?? ""}`.toLowerCase();
-        if (block.type === "swatch")
-          haystack +=
-            " " + block.swatches.map((sw) => `${sw.hex} ${sw.name ?? ""}`).join(" ").toLowerCase();
-        if (haystack.includes(q)) {
-          hits.push({
-            id: `hit-${block.id}`,
-            label: `${block.title}`,
-            hint: `in ${tab.name}`,
-            run: () => {
-              setActiveTab(tab.id);
-              setActiveView("canvas");
-              setSelectedBlockId(block.id);
-              setPaletteOpen(false);
-            },
-          });
-        }
-      }
-    }
-    return [
-      ...hits,
-      ...base.filter((c) => c.label.toLowerCase().includes(q)),
-    ];
-  }, [tabs, activeTabId, query, addBlock, addCalendarBlock, addTab, setActiveTab, setActiveView, setPaletteOpen, setSelectedBlockId]);
+    const hits: Command[] = searchBlocks(tabs, query).map((hit) => ({
+      id: `hit-${hit.block.id}`,
+      label: hit.block.title,
+      hint: `in ${hit.tab.name}`,
+      snippet: hit.snippet,
+      match: hit.match,
+      run: () => {
+        setActiveTab(hit.tab.id);
+        setActiveView("canvas");
+        setSelectedBlockId(hit.block.id);
+        // the canvas scrolls to it once that project has actually rendered
+        setRevealBlockId(hit.block.id);
+        setPaletteOpen(false);
+      },
+    }));
+
+    return [...hits, ...base.filter((c) => c.label.toLowerCase().includes(q))];
+  }, [tabs, activeTabId, query, addBlock, addBlocks, addCalendarBlock, addTab, setActiveTab, setActiveView, setPaletteOpen, setSelectedBlockId, setRevealBlockId]);
 
   useEffect(() => {
     setIndex((i) => Math.min(i, Math.max(0, commands.length - 1)));
@@ -157,7 +155,14 @@ export function CommandPalette() {
                 i === index ? "bg-accent text-accent-ink" : "text-ink"
               }`}
             >
-              <span className="min-w-0 truncate">{cmd.label}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{cmd.label}</span>
+                {cmd.snippet && (
+                  <span className="block truncate text-[11px] opacity-70">
+                    <Snippet text={cmd.snippet} match={cmd.match ?? null} />
+                  </span>
+                )}
+              </span>
               {cmd.hint && <span className="shrink-0 text-[11px] opacity-70">{cmd.hint}</span>}
             </button>
           ))}

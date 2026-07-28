@@ -236,6 +236,17 @@ body.is-interacting [data-theme="glass"] .panel,
   background: var(--surface);
 }
 
+/* Says "this one" after a search jumps you across projects, without moving
+   anything: a ring rather than a scale, so nothing shifts under the cursor. */
+@keyframes reveal-flash {
+  0%, 100% { box-shadow: var(--shadow); }
+  20%, 60% { box-shadow: var(--shadow), 0 0 0 3px var(--color-accent); }
+}
+.reveal-flash { animation: reveal-flash 1.2s ease-in-out; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal-flash { animation: none; box-shadow: var(--shadow), 0 0 0 3px var(--color-accent); }
+}
+
 /* The quick-capture window has no frame, so the panel inside it IS the window.
    The frost layer that keeps light glass readable covers the whole viewport,
    which in a frameless window means a square corner sticking out from under the
