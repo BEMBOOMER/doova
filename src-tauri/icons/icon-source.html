@@ -1,0 +1,56 @@
+<style>
+  html,body{margin:0;background:transparent}
+  body{width:1024px;height:1024px;position:relative;overflow:hidden}
+
+  /* de tegel: 20px transparante marge rondom, net als het huidige icoon */
+  .tile{
+    position:absolute; left:20px; top:20px; width:984px; height:984px;
+    border-radius:220px;                       /* 0.224 x 984 */
+    overflow:hidden;
+    background:
+      /* de roze/paars/wit bloom, hier ingebakken want een dock-icoon
+         heeft geen achtergrond om doorheen te kijken. Drie vlekken, niet meer:
+         coral linksboven, paars rechts, wit dat vanaf onder alles oplicht. */
+      radial-gradient(closest-side, rgba(255,255,255,1), rgba(255,255,255,0) 76%) 130px 720px/1000px 1000px no-repeat,
+      radial-gradient(closest-side, rgba(255,60,120,.95), rgba(255,60,120,0) 74%) -110px -150px/860px 860px no-repeat,
+      radial-gradient(closest-side, rgba(155,60,246,.92), rgba(155,60,246,0) 74%) 500px 20px/900px 900px no-repeat,
+      linear-gradient(150deg, #ffd9e8 0%, #f0e4ff 52%, #ffffff 100%);
+    box-shadow:
+      inset 0 8px 40px rgba(255,255,255,.55),
+      inset 0 2px 0 rgba(255,255,255,.85),
+      inset 0 -2px 0 rgba(255,255,255,.35);
+  }
+  /* glazige speculaire band bovenaan */
+  .tile::after{
+    content:""; position:absolute; left:0; top:0; right:0; bottom:0;
+    background:linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,0) 42%);
+  }
+  /* dunne lichte rand, zoals de panelen in de app */
+  .rim{
+    position:absolute; left:20px; top:20px; width:982px; height:982px;
+    border-radius:220px; border:1px solid rgba(255,255,255,.92);
+    box-sizing:border-box;
+  }
+
+  /* de D uit het bestaande icoon, exact, alleen opnieuw ingekleurd */
+  .d{
+    position:absolute;
+    left:325.3px; top:274.3px; width:503.5px; height:563.6px;   /* 0.31027 / 0.25839 / 0.51170 / 0.57274 */
+    background:#1d1d1f;
+    -webkit-mask:url("doova-d.png") no-repeat center/100% 100%;
+            mask:url("doova-d.png") no-repeat center/100% 100%;
+  }
+  /* het coral blokje, op precies dezelfde plek als in het origineel */
+  .blk{
+    position:absolute;
+    left:597.4px; top:602.4px; width:232.2px; height:237.2px;   /* 0.58698 / 0.59207 / 0.23601 / 0.24110 */
+    border-radius:40px;                                          /* 0.04069 */
+    background:#ff4f81;
+    box-shadow:0 14px 34px rgba(255,79,129,.40), inset 0 2px 0 rgba(255,255,255,.42);
+  }
+</style>
+
+<div class="tile"></div>
+<div class="rim"></div>
+<div class="d"></div>
+<div class="blk"></div>
